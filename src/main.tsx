@@ -8,11 +8,31 @@ import './styles.css';
 
 async function chooseStore() {
   // ?sample=1 loads the fake fixtures into memory; nothing is saved.
-  if (new URLSearchParams(location.search).has('sample')) {
+  // ?sample=stress triples the sample prospects to test drawing speed.
+  const sampleParam = new URLSearchParams(location.search).get('sample');
+  if (sampleParam !== null) {
     const { default: sample } = await import('../fixtures/sample/dataset.json');
-    return new MemoryStore(sample as Dataset);
+    const data = sample as Dataset;
+    if (sampleParam === 'stress') data.prospects = stressCopies(data.prospects, 3);
+    return new MemoryStore(data);
   }
   return new MemoryStore();
+}
+
+function stressCopies(list: Dataset['prospects'], times: number): Dataset['prospects'] {
+  const out = [...list];
+  for (let t = 1; t < times; t++) {
+    for (const p of list) {
+      out.push({
+        ...p,
+        id: `${p.id}-x${t}`,
+        name: `${p.name} copy ${t}`,
+        lat: p.lat === null ? null : p.lat + 0.3 * t,
+        lng: p.lng === null ? null : p.lng - 0.4 * t,
+      });
+    }
+  }
+  return out;
 }
 
 chooseStore().then((store) => useApp.getState().attachStore(store));

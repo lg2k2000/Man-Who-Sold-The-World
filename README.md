@@ -12,7 +12,16 @@ npm run dev          # http://localhost:5173
 npm run dev -- --open
 ```
 
-Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtures/sample/` into memory. A banner says so whenever sample rows are loaded.
+Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtures/sample/` into memory. A banner says so whenever sample rows are loaded. `?sample=stress` triples the sample prospects (600 pins) to check drawing speed.
+
+## Using the map
+
+- Hover a territory to see its card: the territory team, other HPE people covering its states by role, top partners, and counts of prospects and open deals.
+- Click a state or province to zoom to it and show its prospects as pins. A prospect without coordinates sits at the state's center with a dashed pin, marked "location unverified".
+- Click a pin to open the side panel with Brief, Stakeholders, Coverage, and Deals.
+- The filter bar narrows pins by territory, tier fit, primary partner, open deal, and accounts covered by three or more account coverage roles (EAM excluded), which also get a green ring.
+- Press `/` to search people, partners, and prospects by name. Picking one frames it on the map and opens its panel.
+- At the full continent view each state shows a prospect count; pins appear once a territory or state is chosen or the map is zoomed in.
 
 ## Check it
 

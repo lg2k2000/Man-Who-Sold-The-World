@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TerritoryConfig } from '../config/territories';
 import { useApp, type ThemeSetting } from '../state/app';
+import { Search } from './Search';
 
 interface Props {
   config: TerritoryConfig;
@@ -8,7 +9,6 @@ interface Props {
 }
 
 export function Header({ config, homeId }: Props) {
-  const focusId = useApp((s) => s.focusTerritoryId);
   const focusTerritory = useApp((s) => s.focusTerritory);
   const home = config.territories.find((t) => t.id === homeId);
 
@@ -20,22 +20,9 @@ export function Header({ config, homeId }: Props) {
         </svg>
         <h1>{config.fiscal_year} Territory Coverage</h1>
       </div>
+      <Search />
       <nav className="controls" aria-label="Map controls">
-        <label className="picker">
-          <span className="visually-hidden">Territory</span>
-          <select
-            value={focusId ?? ''}
-            onChange={(e) => focusTerritory(e.target.value || null)}
-          >
-            <option value="">All of North America</option>
-            {config.territories.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="btn" onClick={() => focusTerritory(homeId)} disabled={!home}>
+        <button type="button" className="btn" onClick={() => focusTerritory(homeId)} disabled={!home} title={home ? `Frame ${home.name}` : undefined}>
           My territory
         </button>
         <button type="button" className="btn" onClick={() => focusTerritory(null)}>
