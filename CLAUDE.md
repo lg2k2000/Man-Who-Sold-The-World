@@ -7,9 +7,9 @@ Work happens in Claude Code cloud sessions with this repository attached, never 
 ## Who this is for and why
 
 - I'm the owner of this repository. I sell HPE Morpheus software (VM Essentials, Advanced, and Enterprise) as the replacement for VMware. HPE sells through channel partners, so my job runs through HPE account teams, HPE specialists, and partner reps rather than direct sales.
-- HPE's fiscal year 2027 starts on 1 November 2026. My FY27 territory is PacNorthwest, which covers Alaska, the Pacific Northwest states, and Western Canada. The Morpheus specialist for the 4 Corners territory will use the app for his own territory.
+- HPE's fiscal year 2027 starts on 1 November 2026. My FY27 territory is PacNorthwest: Alaska, Washington, Oregon, Idaho, Montana, Wyoming, British Columbia, and the Yukon. The Morpheus specialist for the 4 Corners territory will use the app for his own territory.
 - The app exists so we know who to call. For any state or province it should show who at HPE covers it, which partners work there, which companies are prospects, what we know about each prospect, and who the people inside each prospect are.
-- I'll use it on a laptop and on my phone. It has to feel like an app on both, with the map as the main screen.
+- It is a web app I use in a browser on my laptop, with the map as the main screen. Phones are out of scope (decided 2026-10-07).
 
 ## The map
 
@@ -21,13 +21,13 @@ Work happens in Claude Code cloud sessions with this repository attached, never 
 
 ## What the app does
 
-- On a laptop, hovering a territory shows a card. On a phone, tapping a territory shows the same card as a bottom sheet. The card lists the territory team, other HPE people who cover states in that territory grouped by role, the top partners, the number of prospects, and the number of open deals.
+- Hovering a territory shows a card. The card lists the territory team, other HPE people who cover states in that territory grouped by role, the top partners, the number of prospects, and the number of open deals.
 - Selecting a state or province zooms to it and shows one pin per prospect at its headquarters location.
-- Selecting a pin opens a panel with four tabs: Brief, Stakeholders, Coverage, and Deals. On a laptop the panel slides in from the side. On a phone it is a full-height sheet.
+- Selecting a pin opens a panel with four tabs: Brief, Stakeholders, Coverage, and Deals. The panel slides in from the side.
 - A filter bar narrows pins by territory, tier fit (VME, Advanced, Enterprise, unknown), partner, and whether the account has an open deal.
 - An account covered by people in three or more distinct account coverage roles, not counting the EAM, gets a visual highlight and its own filter.
 - A search box finds any person, partner, or prospect by name and jumps to it on the map.
-- A People view and a Partners view list every record with edit forms. They are sortable tables on a laptop and lists on a phone.
+- A People view and a Partners view list every record with edit forms. They are sortable tables.
 
 ## HPE roles
 
@@ -62,17 +62,17 @@ Every table except `territories` carries `source` (free text or URL), `verified_
 
 - Use React, Vite, and TypeScript, with d3-geo for drawing. If you think another stack fits better, say why in the plan.
 - Get state and province boundaries from Natural Earth admin-1 data (public domain), simplify them, and commit them as a static TopoJSON file. Record the source and license in the README. Use no tile server and no map API key.
-- Make it an installable progressive web app with a manifest and a service worker, so it opens from a phone home screen and works offline on data it has already loaded.
+- It is a web app for a laptop browser. Phase 1 has no progressive web app, service worker, or phone layout.
 - Put all storage behind one data module. In phase 1, store data in the browser (IndexedDB) and load it by importing files. Swapping in a hosted database later should change only that module.
 - Use HPE green #01A982 and navy #425563 for the app's own chrome, and take territory colors from the config. Support light and dark mode.
-- The map should stay smooth on a phone with every state and province drawn and a few hundred pins.
+- The map should stay smooth on a laptop with every state and province drawn and a few hundred pins.
 
 ## How we work
 
 - Start by writing a plan for milestones 1 through 5, including the stack you propose and anything in this brief you think is wrong or missing. Then stop for my approval.
 - After I approve the plan, work through the milestones in order without checking in, except for the items under "Ask me first."
 - Use one branch and one pull request per milestone. Each PR description says what changed, how you verified it, what is still open, and includes the screenshots.
-- Verify before every PR. Run the type check, unit tests for import validation and territory logic, and the production build. Then run the app in a headless browser with sample data, take screenshots at 1440 by 900 and 390 by 844, look at them, and fix what is wrong before you open the PR. Commit the screenshots to `docs/screenshots/<milestone>/`. If you cannot install a headless browser in this environment, say so in the PR and list what I should check by hand.
+- Verify before every PR. Run the type check, unit tests for import validation and territory logic, and the production build. Then run the app in a headless browser with sample data, take screenshots at 1440 by 900 in light and dark mode, look at them, and fix what is wrong before you open the PR. Commit the screenshots to `docs/screenshots/<milestone>/`. If you cannot install a headless browser in this environment, say so in the PR and list what I should check by hand.
 - Keep `docs/progress.md` current with what is done, what is next, open questions, and the decisions you made and why. Each cloud session starts fresh, so this file and CLAUDE.md are the only memory between sessions.
 - If two parts of this brief conflict, or the brief conflicts with something you find, ask me instead of picking one.
 - If the same step fails twice, stop and tell me which step failed and what you tried.
@@ -86,10 +86,10 @@ Every table except `territories` carries `source` (free text or URL), `verified_
 
 ## Milestones for phase 1
 
-1. Map. The North America map renders with territory colors from the config, the legend, the Hawaii inset, the default focus on PacNorthwest, the zoom-out button, and the territory picker, in light and dark mode, at laptop and phone sizes, with the PWA shell in place. This is done when the 1440 by 900 screenshot reads like the reference map and the phone screenshot is usable with one thumb.
-2. Interactions. Territory cards work on hover and tap, state and province zoom works, sample pins render, the pin panel opens with all four tabs, and the filters, the overlap highlight, and search all work on sample data.
+1. Map. The North America map renders with territory colors from the config, the legend, the Hawaii inset, the default focus on PacNorthwest, the zoom-out button, and the territory picker, in light and dark mode. This is done when the 1440 by 900 screenshot reads like the reference map.
+2. Interactions. Territory cards work on hover, state and province zoom works, sample pins render, the pin panel opens with all four tabs, and the filters, the overlap highlight, and search all work on sample data.
 3. Data. The data module, CSV and JSON imports with validation and a rejected-row report, empty states, the sample data banner, and the territory editor with count warnings and export all work.
-4. People and partners. Both views work with edit forms, sorting on a laptop, and lists on a phone.
+4. People and partners. Both views work with edit forms and sorting.
 5. Hardening. Territories and pins are reachable by keyboard, map regions and pins have screen reader labels, colors meet contrast guidelines against the background, error states are handled, and the README explains how to run the app and lists the columns for each import file. Finish with a full screenshot pass.
 
 ## Not in phase 1
@@ -105,10 +105,10 @@ I read these from a phone screenshot of HPE's FY27 Sales Rep Territory Coverage 
 | Territory | Color | Legend count | Members | Status |
 |---|---|---|---|---|
 | Southwest | #2D7DD2 | 2 | US-CA, US-NV | Confirmed by count |
-| PacNorthwest | #E8693A | 9 | US-AK, US-WA, US-OR, US-ID, US-MT, US-WY, CA-YT, CA-BC, plus one unclear slot (CA-AB or US-HI) | Unconfirmed |
+| PacNorthwest | #E8693A | 9 | US-AK, US-WA, US-OR, US-ID, US-MT, US-WY, CA-YT, CA-BC; the legend says 9 and the ninth is unknown | Confirmed by the owner on 2026-10-07 |
 | 4 Corners | #8C5A2E | 4 | US-AZ, US-CO, US-NM, US-UT | Confirmed by count |
 | TOLA | #22B07D | 4 | US-TX, US-OK, US-LA, US-AR | Confirmed by count |
-| Midwest | #EBA21B | 10 | CA-NT, CA-NU, CA-SK, CA-MB, US-ND, US-SD, US-NE, US-KS, US-MO, plus one unclear slot | Unconfirmed |
+| Midwest | #EBA21B | 10 | CA-NT, CA-NU, CA-AB, CA-SK, CA-MB, US-ND, US-SD, US-NE, US-KS, US-MO (Alberta read from the reference screenshot) | Unconfirmed |
 | Ohio Valley | #4E3BA6 | 14 | CA-ON, US-MN, US-IA, US-WI, US-MI, US-IL, US-IN, US-OH, US-KY, US-WV, US-PA, US-VA, US-MD, US-DE | Unconfirmed |
 | New York and Fed | #E07BB5 | 2 | US-NY, US-NJ | Unconfirmed |
 | Southeast | #E04B4B | 7 | US-AL, US-FL, US-GA, US-MS, US-NC, US-SC, US-TN | Unconfirmed |
@@ -116,4 +116,5 @@ I read these from a phone screenshot of HPE's FY27 Sales Rep Territory Coverage 
 
 - The reference map gives each territory a two-person Morpheus team and one OpsRamp specialist. Names come from my people import and never go in this file.
 - Hawaii does not appear on the reference map. Draw it unassigned until the config says otherwise.
+- DC is in no row. Leave it unassigned.
 - The background is a light blue-gray near #EEF1F4, and land outside the US and Canada is a light warm gray near #E5E3DF.
