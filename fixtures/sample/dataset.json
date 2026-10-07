@@ -1,0 +1,682 @@
+{
+  "people": [
+    {
+      "email": "sample.person.a@example.com",
+      "name": "Sample Person A",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "southwest"
+      ],
+      "states": [
+        "US-CA",
+        "US-NV"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.b@example.com",
+      "name": "Sample Person B",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "southwest"
+      ],
+      "states": [
+        "US-CA",
+        "US-NV"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.c@example.com",
+      "name": "Sample Person C",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "southwest"
+      ],
+      "states": [
+        "US-CA",
+        "US-NV"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.d@example.com",
+      "name": "Sample Person D",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "pacnorthwest"
+      ],
+      "states": [
+        "US-AK",
+        "US-WA",
+        "US-OR",
+        "US-ID",
+        "US-MT",
+        "US-WY",
+        "CA-YT",
+        "CA-BC"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.e@example.com",
+      "name": "Sample Person E",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "pacnorthwest"
+      ],
+      "states": [
+        "US-AK",
+        "US-WA",
+        "US-OR",
+        "US-ID",
+        "US-MT",
+        "US-WY",
+        "CA-YT",
+        "CA-BC"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.f@example.com",
+      "name": "Sample Person F",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "pacnorthwest"
+      ],
+      "states": [
+        "US-AK",
+        "US-WA",
+        "US-OR",
+        "US-ID",
+        "US-MT",
+        "US-WY",
+        "CA-YT",
+        "CA-BC"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.g@example.com",
+      "name": "Sample Person G",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "4corners"
+      ],
+      "states": [
+        "US-AZ",
+        "US-CO",
+        "US-NM",
+        "US-UT"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.h@example.com",
+      "name": "Sample Person H",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "4corners"
+      ],
+      "states": [
+        "US-AZ",
+        "US-CO",
+        "US-NM",
+        "US-UT"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.i@example.com",
+      "name": "Sample Person I",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "4corners"
+      ],
+      "states": [
+        "US-AZ",
+        "US-CO",
+        "US-NM",
+        "US-UT"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.j@example.com",
+      "name": "Sample Person J",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "tola"
+      ],
+      "states": [
+        "US-TX",
+        "US-OK",
+        "US-LA",
+        "US-AR"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.k@example.com",
+      "name": "Sample Person K",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "tola"
+      ],
+      "states": [
+        "US-TX",
+        "US-OK",
+        "US-LA",
+        "US-AR"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.l@example.com",
+      "name": "Sample Person L",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "tola"
+      ],
+      "states": [
+        "US-TX",
+        "US-OK",
+        "US-LA",
+        "US-AR"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.m@example.com",
+      "name": "Sample Person M",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "midwest"
+      ],
+      "states": [
+        "CA-NT",
+        "CA-NU",
+        "CA-AB",
+        "CA-SK",
+        "CA-MB",
+        "US-ND",
+        "US-SD",
+        "US-NE",
+        "US-KS",
+        "US-MO"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.n@example.com",
+      "name": "Sample Person N",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "midwest"
+      ],
+      "states": [
+        "CA-NT",
+        "CA-NU",
+        "CA-AB",
+        "CA-SK",
+        "CA-MB",
+        "US-ND",
+        "US-SD",
+        "US-NE",
+        "US-KS",
+        "US-MO"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.o@example.com",
+      "name": "Sample Person O",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "midwest"
+      ],
+      "states": [
+        "CA-NT",
+        "CA-NU",
+        "CA-AB",
+        "CA-SK",
+        "CA-MB",
+        "US-ND",
+        "US-SD",
+        "US-NE",
+        "US-KS",
+        "US-MO"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.p@example.com",
+      "name": "Sample Person P",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "ohiovalley"
+      ],
+      "states": [
+        "CA-ON",
+        "US-MN",
+        "US-IA",
+        "US-WI",
+        "US-MI",
+        "US-IL",
+        "US-IN",
+        "US-OH",
+        "US-KY",
+        "US-WV",
+        "US-PA",
+        "US-VA",
+        "US-MD",
+        "US-DE"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.q@example.com",
+      "name": "Sample Person Q",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "ohiovalley"
+      ],
+      "states": [
+        "CA-ON",
+        "US-MN",
+        "US-IA",
+        "US-WI",
+        "US-MI",
+        "US-IL",
+        "US-IN",
+        "US-OH",
+        "US-KY",
+        "US-WV",
+        "US-PA",
+        "US-VA",
+        "US-MD",
+        "US-DE"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.r@example.com",
+      "name": "Sample Person R",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "ohiovalley"
+      ],
+      "states": [
+        "CA-ON",
+        "US-MN",
+        "US-IA",
+        "US-WI",
+        "US-MI",
+        "US-IL",
+        "US-IN",
+        "US-OH",
+        "US-KY",
+        "US-WV",
+        "US-PA",
+        "US-VA",
+        "US-MD",
+        "US-DE"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.s@example.com",
+      "name": "Sample Person S",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "nyfed"
+      ],
+      "states": [
+        "US-NY",
+        "US-NJ"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.t@example.com",
+      "name": "Sample Person T",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "nyfed"
+      ],
+      "states": [
+        "US-NY",
+        "US-NJ"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.u@example.com",
+      "name": "Sample Person U",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "nyfed"
+      ],
+      "states": [
+        "US-NY",
+        "US-NJ"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.v@example.com",
+      "name": "Sample Person V",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "southeast"
+      ],
+      "states": [
+        "US-AL",
+        "US-FL",
+        "US-GA",
+        "US-MS",
+        "US-NC",
+        "US-SC",
+        "US-TN"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.w@example.com",
+      "name": "Sample Person W",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "southeast"
+      ],
+      "states": [
+        "US-AL",
+        "US-FL",
+        "US-GA",
+        "US-MS",
+        "US-NC",
+        "US-SC",
+        "US-TN"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.x@example.com",
+      "name": "Sample Person X",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "southeast"
+      ],
+      "states": [
+        "US-AL",
+        "US-FL",
+        "US-GA",
+        "US-MS",
+        "US-NC",
+        "US-SC",
+        "US-TN"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.y@example.com",
+      "name": "Sample Person Y",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "northeast"
+      ],
+      "states": [
+        "US-CT",
+        "US-MA",
+        "US-ME",
+        "US-NH",
+        "US-RI",
+        "US-VT",
+        "CA-NB",
+        "CA-NL",
+        "CA-NS",
+        "CA-PE",
+        "CA-QC"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.z@example.com",
+      "name": "Sample Person Z",
+      "roles": [
+        "morpheus"
+      ],
+      "specialty": null,
+      "territories": [
+        "northeast"
+      ],
+      "states": [
+        "US-CT",
+        "US-MA",
+        "US-ME",
+        "US-NH",
+        "US-RI",
+        "US-VT",
+        "CA-NB",
+        "CA-NL",
+        "CA-NS",
+        "CA-PE",
+        "CA-QC"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    },
+    {
+      "email": "sample.person.aa@example.com",
+      "name": "Sample Person AA",
+      "roles": [
+        "opsramp"
+      ],
+      "specialty": null,
+      "territories": [
+        "northeast"
+      ],
+      "states": [
+        "US-CT",
+        "US-MA",
+        "US-ME",
+        "US-NH",
+        "US-RI",
+        "US-VT",
+        "CA-NB",
+        "CA-NL",
+        "CA-NS",
+        "CA-PE",
+        "CA-QC"
+      ],
+      "notes": "",
+      "source": "sample fixture",
+      "verified_at": null,
+      "updated_by": "sample",
+      "is_sample": true
+    }
+  ],
+  "coverage": [],
+  "partners": [],
+  "prospects": [],
+  "briefs": [],
+  "stakeholders": [],
+  "deals": []
+}

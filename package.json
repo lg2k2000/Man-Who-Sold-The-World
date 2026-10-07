@@ -1,0 +1,48 @@
+{
+  "name": "man-who-sold-the-world",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "boundaries": "node scripts/build-boundaries.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "dependencies": {
+    "d3-geo": "3.1.1",
+    "d3-selection": "3.0.0",
+    "d3-transition": "3.0.1",
+    "d3-zoom": "3.0.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "topojson-client": "3.1.0",
+    "zod": "3.23.8",
+    "zustand": "4.5.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/d3-geo": "3.1.0",
+    "@types/d3-selection": "3.0.11",
+    "@types/d3-transition": "3.0.9",
+    "@types/d3-zoom": "3.0.8",
+    "@types/geojson": "7946.0.14",
+    "@types/node": "22.18.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/topojson-client": "3.1.5",
+    "@types/topojson-specification": "1.0.5",
+    "@vitejs/plugin-react": "6.1.1",
+    "mapshaper": "0.7.66",
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "fflate": "0.8.3",
+    "adm-zip": "0.6.1"
+  }
+}

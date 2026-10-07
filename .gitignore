@@ -14,3 +14,6 @@ test-results/
 .env
 .env.*
 .DS_Store
+
+# Throwaway screenshots from development runs.
+docs/screenshots/scratch/

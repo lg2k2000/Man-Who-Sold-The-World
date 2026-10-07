@@ -1,0 +1,141 @@
+{
+  "fiscal_year": "FY27",
+  "source": "HPE FY27 Sales Rep Territory Coverage map, read from a phone screenshot on 2026-10-07. Colors matched by eye. PacNorthwest confirmed by the owner on 2026-10-07.",
+  "default_focus": "pacnorthwest",
+  "territories": [
+    {
+      "id": "southwest",
+      "name": "Southwest",
+      "color": "#2D7DD2",
+      "legend_count": 2,
+      "members": [
+        { "code": "US-CA", "confirmed": true },
+        { "code": "US-NV", "confirmed": true }
+      ]
+    },
+    {
+      "id": "pacnorthwest",
+      "name": "PacNorthwest",
+      "color": "#E8693A",
+      "legend_count": 9,
+      "members": [
+        { "code": "US-AK", "confirmed": true },
+        { "code": "US-WA", "confirmed": true },
+        { "code": "US-OR", "confirmed": true },
+        { "code": "US-ID", "confirmed": true },
+        { "code": "US-MT", "confirmed": true },
+        { "code": "US-WY", "confirmed": true },
+        { "code": "CA-YT", "confirmed": true },
+        { "code": "CA-BC", "confirmed": true }
+      ]
+    },
+    {
+      "id": "4corners",
+      "name": "4 Corners",
+      "color": "#8C5A2E",
+      "legend_count": 4,
+      "members": [
+        { "code": "US-AZ", "confirmed": true },
+        { "code": "US-CO", "confirmed": true },
+        { "code": "US-NM", "confirmed": true },
+        { "code": "US-UT", "confirmed": true }
+      ]
+    },
+    {
+      "id": "tola",
+      "name": "TOLA",
+      "color": "#22B07D",
+      "legend_count": 4,
+      "members": [
+        { "code": "US-TX", "confirmed": true },
+        { "code": "US-OK", "confirmed": true },
+        { "code": "US-LA", "confirmed": true },
+        { "code": "US-AR", "confirmed": true }
+      ]
+    },
+    {
+      "id": "midwest",
+      "name": "Midwest",
+      "color": "#EBA21B",
+      "legend_count": 10,
+      "members": [
+        { "code": "CA-NT", "confirmed": false },
+        { "code": "CA-NU", "confirmed": false },
+        { "code": "CA-AB", "confirmed": false },
+        { "code": "CA-SK", "confirmed": false },
+        { "code": "CA-MB", "confirmed": false },
+        { "code": "US-ND", "confirmed": false },
+        { "code": "US-SD", "confirmed": false },
+        { "code": "US-NE", "confirmed": false },
+        { "code": "US-KS", "confirmed": false },
+        { "code": "US-MO", "confirmed": false }
+      ]
+    },
+    {
+      "id": "ohiovalley",
+      "name": "Ohio Valley",
+      "color": "#4E3BA6",
+      "legend_count": 14,
+      "members": [
+        { "code": "CA-ON", "confirmed": false },
+        { "code": "US-MN", "confirmed": false },
+        { "code": "US-IA", "confirmed": false },
+        { "code": "US-WI", "confirmed": false },
+        { "code": "US-MI", "confirmed": false },
+        { "code": "US-IL", "confirmed": false },
+        { "code": "US-IN", "confirmed": false },
+        { "code": "US-OH", "confirmed": false },
+        { "code": "US-KY", "confirmed": false },
+        { "code": "US-WV", "confirmed": false },
+        { "code": "US-PA", "confirmed": false },
+        { "code": "US-VA", "confirmed": false },
+        { "code": "US-MD", "confirmed": false },
+        { "code": "US-DE", "confirmed": false }
+      ]
+    },
+    {
+      "id": "nyfed",
+      "name": "New York and Fed",
+      "color": "#E07BB5",
+      "legend_count": 2,
+      "members": [
+        { "code": "US-NY", "confirmed": false },
+        { "code": "US-NJ", "confirmed": false }
+      ]
+    },
+    {
+      "id": "southeast",
+      "name": "Southeast",
+      "color": "#E04B4B",
+      "legend_count": 7,
+      "members": [
+        { "code": "US-AL", "confirmed": false },
+        { "code": "US-FL", "confirmed": false },
+        { "code": "US-GA", "confirmed": false },
+        { "code": "US-MS", "confirmed": false },
+        { "code": "US-NC", "confirmed": false },
+        { "code": "US-SC", "confirmed": false },
+        { "code": "US-TN", "confirmed": false }
+      ]
+    },
+    {
+      "id": "northeast",
+      "name": "Northeast",
+      "color": "#17998F",
+      "legend_count": 11,
+      "members": [
+        { "code": "US-CT", "confirmed": false },
+        { "code": "US-MA", "confirmed": false },
+        { "code": "US-ME", "confirmed": false },
+        { "code": "US-NH", "confirmed": false },
+        { "code": "US-RI", "confirmed": false },
+        { "code": "US-VT", "confirmed": false },
+        { "code": "CA-NB", "confirmed": false },
+        { "code": "CA-NL", "confirmed": false },
+        { "code": "CA-NS", "confirmed": false },
+        { "code": "CA-PE", "confirmed": false },
+        { "code": "CA-QC", "confirmed": false }
+      ]
+    }
+  ]
+}
