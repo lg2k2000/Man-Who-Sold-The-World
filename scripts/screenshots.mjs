@@ -18,18 +18,71 @@ const click = (name) => async (page) => {
   await page.getByRole('button', { name, exact: true }).first().click();
   await page.waitForTimeout(900);
 };
+const regionCenter = async (page, code) => {
+  const box = await page.locator(`path.region[data-code="${code}"]`).boundingBox();
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+};
+const hoverRegion = (code, dx = 0, dy = 0) => async (page) => {
+  const c = await regionCenter(page, code);
+  await page.mouse.move(c.x + dx, c.y + dy);
+  await page.waitForTimeout(300);
+};
+const clickRegion = (code, dx = 0, dy = 0) => async (page) => {
+  const c = await regionCenter(page, code);
+  await page.mouse.click(c.x + dx, c.y + dy);
+  await page.waitForTimeout(900);
+};
+const search = (text, pick = true) => async (page) => {
+  await page.getByRole('combobox', { name: /search/i }).fill(text);
+  await page.waitForTimeout(250);
+  if (pick) {
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(900);
+  }
+};
+const tab = (name) => async (page) => {
+  await page.getByRole('tab', { name: new RegExp(`^${name}`) }).click();
+  await page.waitForTimeout(250);
+};
+const choose = (label, value) => async (page) => {
+  await page.getByLabel(label, { exact: true }).selectOption(value);
+  await page.waitForTimeout(700);
+};
+const check = (label) => async (page) => {
+  await page.getByLabel(label).check({ force: true });
+  await page.waitForTimeout(500);
+};
+const away = async (page) => {
+  await page.mouse.move(5, 300);
+  await page.waitForTimeout(200);
+};
 
 /** Each shot: name, query string, and steps run before the capture. */
-const shots = [
-  { name: 'home', query: '?sample=1', steps: [] },
-  { name: 'north-america', query: '?sample=1', steps: [click('North America')] },
-  { name: 'empty', query: '', steps: [] },
-  {
-    name: 'settings',
-    query: '?sample=1',
-    steps: [click('Settings')],
-  },
-];
+const sets = {
+  m1: [
+    { name: 'home', query: '?sample=1', steps: [] },
+    { name: 'north-america', query: '?sample=1', steps: [click('North America')] },
+    { name: 'empty', query: '', steps: [] },
+    { name: 'settings', query: '?sample=1', steps: [click('Settings')] },
+  ],
+  m2: [
+    { name: 'home-pins', query: '?sample=1', steps: [away] },
+    { name: 'north-america-counts', query: '?sample=1', steps: [click('North America'), away] },
+    { name: 'hover-card', query: '?sample=1', steps: [hoverRegion('US-MT')] },
+    { name: 'state-zoom', query: '?sample=1', steps: [clickRegion('US-OR', 50, 10), away] },
+    { name: 'pin-brief', query: '?sample=1', steps: [search('Sample Co 26'), away] },
+    { name: 'pin-stakeholders', query: '?sample=1', steps: [search('Sample Co 26'), tab('Stakeholders'), away] },
+    { name: 'pin-coverage', query: '?sample=1', steps: [search('Sample Co 26'), tab('Coverage'), away] },
+    { name: 'pin-deals', query: '?sample=1', steps: [search('Sample Co 26'), tab('Deals'), away] },
+    { name: 'filter-overlap', query: '?sample=1', steps: [check('3+ coverage roles'), away] },
+    { name: 'filter-tier-deal', query: '?sample=1', steps: [choose('Tier fit', 'vme'), choose('Open deal', 'yes'), away] },
+    { name: 'search-list', query: '?sample=1', steps: [search('sample partner', false)] },
+    { name: 'partner-panel', query: '?sample=1', steps: [search('Sample Partner 2'), away] },
+    { name: 'person-panel', query: '?sample=1', steps: [search('Sample Person AD'), away] },
+    { name: 'empty', query: '', steps: [hoverRegion('US-OR')] },
+  ],
+};
+const shots = sets[milestone] ?? sets.m2;
 
 const server = await preview({ root, preview: { port: 4317, strictPort: true }, logLevel: 'error' });
 const base = server.resolvedUrls.local[0].replace(/\/$/, '');
