@@ -1,0 +1,16 @@
+# Real data never goes into Git: import files, exports, backups.
+data/
+
+# Downloaded source boundaries (the simplified TopoJSON is committed elsewhere).
+.cache/
+
+node_modules/
+dist/
+dev-dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+.env
+.env.*
+.DS_Store
