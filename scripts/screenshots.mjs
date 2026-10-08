@@ -244,6 +244,65 @@ sets.m5 = [
   { name: '21-error-map-load', query: '', route: '**/geo/north-america.topo.json', steps: [] },
   { name: '22-error-storage-blocked', query: '#/data', blockStorage: true, steps: [] },
 ];
+const waitDetail = async (page) => {
+  await page.waitForSelector('g.detail');
+  await page.waitForTimeout(300);
+};
+/** Zooms with the mouse wheel over the first of these cities that has a label, so it stays put. */
+const wheelAt =
+  (cities, clicks = 1) =>
+  async (page) => {
+    let box = null;
+    for (const city of cities) {
+      const dot = page.locator('g.city', { hasText: new RegExp(`^${city}$`) }).locator('circle');
+      if (await dot.count()) {
+        box = await dot.first().boundingBox();
+        break;
+      }
+    }
+    if (!box) throw new Error(`None of ${cities.join(', ')} is labeled`);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let i = 0; i < clicks; i++) {
+      await page.mouse.wheel(0, -300);
+      await page.waitForTimeout(250);
+    }
+    await page.waitForTimeout(700);
+  };
+const layer = (label, on) => async (page) => {
+  await page.getByRole('dialog', { name: 'Map layers' }).getByLabel(label).setChecked(on);
+  await page.waitForTimeout(300);
+};
+/** Rests the mouse on the legend, since at state zoom the map's left edge is land and would show a card. */
+const offMap = async (page) => {
+  await page.mouse.move(150, 319);
+  await page.waitForTimeout(200);
+};
+sets.m6 = [
+  { name: '01-home', query: '?sample=1', steps: [waitDetail, offMap] },
+  { name: '02-north-america', query: '?sample=1', steps: [waitDetail, click('North America'), offMap] },
+  { name: '03-washington', query: '?sample=1', steps: [waitDetail, clickRegion('US-WA', 30, 20), offMap] },
+  {
+    name: '04-puget-sound',
+    query: '?sample=1',
+    steps: [waitDetail, clickRegion('US-WA', 30, 20), wheelAt(['Seattle', 'Bremerton', 'Tacoma'], 3), offMap],
+  },
+  { name: '05-oregon-pins', query: '?sample=1', steps: [waitDetail, clickRegion('US-OR', -25, 15), offMap] },
+  { name: '06-layers-menu', query: '?sample=1', steps: [waitDetail, clickRegion('US-WA', 30, 20), click('Map layers')] },
+  {
+    name: '07-layers-off',
+    query: '?sample=1',
+    steps: [
+      waitDetail,
+      clickRegion('US-WA', 30, 20),
+      click('Map layers'),
+      layer('Highways', false),
+      layer('Metro areas', false),
+      layer('US county lines', false),
+    ],
+  },
+  { name: '08-empty-map', query: '', steps: [waitDetail, offMap] },
+  { name: '09-detail-failed', query: '?sample=1', route: '**/geo/detail.topo.json', steps: [click('Map layers')] },
+];
 const shots = sets[milestone] ?? sets.m2;
 
 const server = await preview({ root, preview: { port: 4317, strictPort: true }, logLevel: 'error' });
@@ -270,7 +329,8 @@ try {
         });
       }
       await page.goto(base + '/' + shot.query);
-      await page.waitForSelector(shot.route ? '.map-error' : shot.query.includes('#/') ? '.page' : '.region');
+      const mapFails = shot.route?.includes('north-america');
+      await page.waitForSelector(mapFails ? '.map-error' : shot.query.includes('#/') ? '.page' : '.region');
       await page.waitForTimeout(400);
       for (const step of shot.steps) await step(page);
       const file = join(outDir, `${shot.name}-${scheme}.png`);

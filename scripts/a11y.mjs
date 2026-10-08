@@ -21,6 +21,19 @@ const views = [
   { name: 'partners', url: '/?sample=1#/partners', ready: '.records' },
   { name: 'data', url: '/#/data', ready: '.page' },
   {
+    name: 'map layers at state zoom',
+    url: '/?sample=1',
+    ready: '.region',
+    steps: async (page) => {
+      await page.waitForSelector('g.detail', { state: 'attached' });
+      await page.getByRole('combobox', { name: /search/i }).fill('Sample Co 26');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(800);
+      await page.getByRole('button', { name: 'Map layers' }).click();
+      await page.waitForTimeout(200);
+    },
+  },
+  {
     name: 'pin panel',
     url: '/?sample=1',
     ready: '.region',

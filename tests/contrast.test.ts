@@ -40,6 +40,21 @@ export function contrast(a: string, b: string): number {
   return (x! + 0.05) / (y! + 0.05);
 }
 
+/** A token that may be translucent, as [r, g, b, alpha]. */
+function rgba(tokens: Record<string, string>, name: string): [number, number, number, number] {
+  const v = tokens[name] ?? '';
+  const m = v.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/);
+  if (m) return [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+  const hex = resolve(tokens, name);
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).concat(1) as [number, number, number, number];
+}
+
+/** Paints a translucent color over an opaque one. */
+function over([r, g, b, a]: [number, number, number, number], base: string): string {
+  const mix = (c: number, i: number) => Math.round(c * a + parseInt(base.slice(i, i + 2), 16) * (1 - a));
+  return '#' + [mix(r, 1), mix(g, 3), mix(b, 5)].map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
 const TEXT_PAIRS: [string, string][] = [
   ['text', 'surface'],
   ['text', 'page'],
@@ -75,6 +90,16 @@ for (const [themeName, tokens] of [
         expect(contrast(resolve(tokens, fg), resolve(tokens, bg))).toBeGreaterThanOrEqual(3);
       });
     }
+    it('map labels reach 4.5:1 on their halo over every territory color and the background', () => {
+      const grounds = [...rawConfig.territories.map((t) => t.color), resolve(tokens, 'map-water'), resolve(tokens, 'map-land')];
+      for (const ground of grounds) {
+        const halo = over(rgba(tokens, 'd-halo'), ground);
+        for (const label of ['d-label', 'd-region-label']) {
+          const text = over(rgba(tokens, label), halo);
+          expect({ ground, label, ratio: contrast(text, halo) >= 4.5 }).toEqual({ ground, label, ratio: true });
+        }
+      }
+    });
     it('every territory has a pin color that reaches 3:1 on its fill', () => {
       const pinFill = resolve(tokens, 'pin-fill');
       const pinStroke = resolve(tokens, 'pin-stroke');

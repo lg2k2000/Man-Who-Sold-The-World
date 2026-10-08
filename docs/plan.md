@@ -1,6 +1,6 @@
 # Phase 1 plan
 
-Status: approved by the owner on 2026-10-07 ("go start"). Phase 1 was built on 2026-10-07 and 08 as M1 to M5; `docs/progress.md` records what changed from this plan and why.
+Status: approved by the owner on 2026-10-07 ("go start"). Phase 1 was built on 2026-10-07 and 08 as M1 to M5, and M6 (map detail) followed on 2026-10-08 at the owner's request; `docs/progress.md` records what changed from this plan and why.
 
 Phase 1 builds a web app for a laptop browser that shows, for any state or province, who at HPE covers it, which partners work there, and which prospects sit there. It ships with an empty database, and only files the owner imports fill it.
 
@@ -92,6 +92,12 @@ Before each PR, Claude runs `tsc --noEmit`, the unit tests, and `vite build`, th
 - The app handles a failed import, storage that is full or denied, a TopoJSON that fails to load, and a browser that blocks IndexedDB.
 - The README explains how to run, build, and import, and lists the columns for each import file.
 - A full screenshot pass closes the milestone.
+
+### M6 map detail (added 2026-10-08)
+
+- The owner asked for a map "way more detailed" than the reference, and chose detail bundled with the app over a tile service, with every free layer: cities and towns, highways, rivers and lakes, metro areas, US county lines, and state and province names.
+- Labels are placed so none overlap, and more appear with zoom. A layers menu turns each kind on or off.
+- Panning stays smooth with every layer on and 600 pins.
 
 ## Open items that do not block M1
 

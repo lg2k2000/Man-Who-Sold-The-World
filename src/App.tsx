@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { loadBoundaries, type Boundaries } from './map/geo';
+import { loadDetail, type Detail } from './map/detail';
 import { MapView } from './map/MapView';
 import { HawaiiInset } from './map/HawaiiInset';
 import { Header } from './ui/Header';
@@ -23,6 +24,8 @@ const VIEWS: View[] = ['map', 'data', 'people', 'partners'];
 export function App() {
   const [boundaries, setBoundaries] = useState<Boundaries | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detailFailed, setDetailFailed] = useState(false);
   const stageRef = useRef<HTMLElement>(null);
   const [stage, setStage] = useState({ w: 0, h: 0 });
 
@@ -39,6 +42,7 @@ export function App() {
   const panelOpen = useApp((s) => s.panel !== null);
   const editing = useApp((s) => s.editingTerritories);
   const storeProblem = useApp((s) => s.storeProblem);
+  const layers = useApp((s) => s.settings.layers);
 
   const homeId = savedHome && config.territories.some((t) => t.id === savedHome) ? savedHome : config.default_focus;
 
@@ -53,6 +57,15 @@ export function App() {
   useEffect(() => {
     loadBoundaries().then(setBoundaries, (e: unknown) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
+
+  // Detail (cities, roads, water, counties) loads after the territories have drawn. The map works without it.
+  useEffect(() => {
+    if (!boundaries || detail || detailFailed) return;
+    loadDetail().then(setDetail, (e: unknown) => {
+      console.warn(e);
+      setDetailFailed(true);
+    });
+  }, [boundaries, detail, detailFailed]);
 
   // Open on the viewer's own territory.
   useEffect(() => {
@@ -125,6 +138,9 @@ export function App() {
               <>
                 <MapView
                   boundaries={boundaries}
+                  detail={detail}
+                  detailStatus={detail ? 'ready' : detailFailed ? 'failed' : 'loading'}
+                  layers={layers}
                   config={config}
                   index={regionIndex}
                   insets={{ left: LEGEND_WIDTH + 16, right: panelOpen ? PANEL_WIDTH : 0 }}

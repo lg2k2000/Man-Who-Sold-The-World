@@ -5,6 +5,7 @@ import type { DataStore } from '../data/store';
 import { committedConfig } from '../config';
 import { buildRegionIndex, territoryConfigSchema, type RegionAssignment, type TerritoryConfig } from '../config/territories';
 import { configHash } from '../config/editor';
+import { DEFAULT_LAYERS, readLayers, type LayerSettings } from '../map/detail';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 export type View = 'map' | 'data' | 'people' | 'partners';
@@ -18,10 +19,12 @@ interface Settings {
   theme: ThemeSetting;
   /** Name written to updated_by when the viewer edits a record. */
   editorName: string;
+  /** Which detail layers the map draws. */
+  layers: LayerSettings;
 }
 
 function readSettings(): Settings {
-  const fallback: Settings = { homeTerritoryId: null, theme: 'system', editorName: '' };
+  const fallback: Settings = { homeTerritoryId: null, theme: 'system', editorName: '', layers: { ...DEFAULT_LAYERS } };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return fallback;
@@ -30,6 +33,7 @@ function readSettings(): Settings {
       homeTerritoryId: typeof parsed.homeTerritoryId === 'string' ? parsed.homeTerritoryId : null,
       theme: parsed.theme === 'light' || parsed.theme === 'dark' ? parsed.theme : 'system',
       editorName: typeof parsed.editorName === 'string' ? parsed.editorName : '',
+      layers: readLayers(parsed.layers),
     };
   } catch {
     return fallback;
@@ -113,6 +117,7 @@ interface AppState {
   setHomeTerritory(id: string | null): void;
   setTheme(theme: ThemeSetting): void;
   setEditorName(name: string): void;
+  setLayers(layers: LayerSettings): void;
   setView(view: View): void;
 
   setEditingTerritories(on: boolean): void;
@@ -178,6 +183,11 @@ export const useApp = create<AppState>((set, get) => ({
   },
   setEditorName(editorName) {
     const settings = { ...get().settings, editorName };
+    writeLocal(SETTINGS_KEY, settings);
+    set({ settings });
+  },
+  setLayers(layers) {
+    const settings = { ...get().settings, layers };
     writeLocal(SETTINGS_KEY, settings);
     set({ settings });
   },
