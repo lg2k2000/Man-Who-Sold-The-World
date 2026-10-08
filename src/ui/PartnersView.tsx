@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { deletePartner, partnerDeleteImpact, savePartner, type FieldErrors } from '../data/edit';
 import { YES_NO_UNKNOWN, type Partner, type PartnerContact, type YesNoUnknown } from '../data/types';
 import { useApp } from '../state/app';
+import { describeStorageError } from '../data/idb';
 import { SortableTable, type Column } from './SortableTable';
 import { Drawer, Field, StatesPreview, statesText, today } from './forms';
 
@@ -97,7 +98,7 @@ export function PartnersView({ regionNames }: { regionNames: Map<string, string>
   }, [editPartner]);
 
   return (
-    <div className="page with-drawer">
+    <main className="page with-drawer" id="main" tabIndex={-1}>
       <div className="page-scroll">
         <div className="page-inner wide">
           <header className="page-head row">
@@ -150,7 +151,7 @@ export function PartnersView({ regionNames }: { regionNames: Map<string, string>
         </div>
       </div>
       {(adding || editing) && <PartnerForm key={formKey} partner={editing} regionNames={regionNames} onClose={close} />}
-    </div>
+    </main>
   );
 }
 
@@ -209,7 +210,7 @@ function PartnerForm({ partner, regionNames, onClose }: { partner: Partner | nul
       editPartner(result.record.id);
       setStatus('Saved.');
     } catch (e) {
-      setStatus(`Saving failed: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus(`Saving failed: ${describeStorageError(e)}`);
     }
   };
 

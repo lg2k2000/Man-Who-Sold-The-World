@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { coverageRoles, isOpenDeal, orgTree, OVERLAP_THRESHOLD, type OrgNode } from '../data/derive';
 import {
   BRIEF_SECTIONS,
@@ -23,6 +23,9 @@ export function SidePanel({ regionNames }: Props) {
   const panel = useApp((s) => s.panel);
   const index = useApp((s) => s.index);
   const closePanel = useApp((s) => s.closePanel);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+  const panelKey = panel ? `${panel.kind}:${panel.id}` : null;
 
   useEffect(() => {
     if (!panel) return;
@@ -32,6 +35,18 @@ export function SidePanel({ regionNames }: Props) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [panel, closePanel]);
+
+  // Move focus into the panel when it opens or changes, and back where it came from when it closes.
+  useEffect(() => {
+    if (panelKey) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && !active.closest('.panel')) returnTo.current = active;
+      headingRef.current?.focus();
+    } else if (returnTo.current) {
+      if (document.contains(returnTo.current)) returnTo.current.focus();
+      returnTo.current = null;
+    }
+  }, [panelKey]);
 
   let body: React.ReactNode = null;
   let title = '';
@@ -60,7 +75,9 @@ export function SidePanel({ regionNames }: Props) {
       {body && (
         <>
           <div className="panel-head">
-            <h2>{title}</h2>
+            <h2 ref={headingRef} tabIndex={-1}>
+              {title}
+            </h2>
             <button type="button" className="icon-btn" onClick={closePanel} aria-label="Close panel">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="currentColor" d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" />
@@ -150,15 +167,33 @@ function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNam
             id={`tab-${t}`}
             aria-selected={tab === t}
             aria-controls={`tabpanel-${t}`}
+            tabIndex={tab === t ? 0 : -1}
             className={tab === t ? 'on' : ''}
             onClick={() => setTab(t)}
+            onKeyDown={(e) => {
+              const i = TABS.indexOf(t);
+              const next =
+                e.key === 'ArrowRight'
+                  ? TABS[(i + 1) % TABS.length]
+                  : e.key === 'ArrowLeft'
+                    ? TABS[(i - 1 + TABS.length) % TABS.length]
+                    : e.key === 'Home'
+                      ? TABS[0]
+                      : e.key === 'End'
+                        ? TABS[TABS.length - 1]
+                        : null;
+              if (!next) return;
+              e.preventDefault();
+              setTab(next);
+              document.getElementById(`tab-${next}`)?.focus();
+            }}
           >
             {t}
             <span className="tab-count">{counts[t]}</span>
           </button>
         ))}
       </div>
-      <div className="tabpanel" role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`}>
+      <div className="tabpanel" role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0}>
         {tab === 'Brief' && <BriefTab brief={brief} />}
         {tab === 'Stakeholders' && <StakeholdersTab stakeholders={stakeholders} />}
         {tab === 'Coverage' && <CoverageTab people={covering} partner={partner} />}

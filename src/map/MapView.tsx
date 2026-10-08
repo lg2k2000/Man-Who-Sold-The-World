@@ -91,7 +91,8 @@ export function MapView({ boundaries, config, index, insets }: Props) {
       }));
     const byCode = new Map(regions.map((r) => [r.code, r]));
     const countries = boundaries.countries.map((f, i) => ({ key: `${f.properties.iso}-${i}`, d: path(f) ?? '' }));
-    return { projection, regions, byCode, countries };
+    const coast = path(boundaries.coast) ?? '';
+    return { projection, regions, byCode, countries, coast };
   }, [boundaries, size]);
 
   // Pan and zoom. The layer transform, the marker scale, and the hatch scale
@@ -196,11 +197,122 @@ export function MapView({ boundaries, config, index, insets }: Props) {
     });
   }, [geo, scope, filtered]);
 
+  // Keyboard order: territories as the legend lists them, regions by name, unassigned last.
+  const regionOrder = useMemo(() => {
+    if (!geo) return [];
+    const rank = new Map(config.territories.map((t, i) => [t.id, i]));
+    return [...geo.regions]
+      .sort((a, b) => {
+        const ta = rank.get(index.get(a.code)?.territory.id ?? '') ?? 99;
+        const tb = rank.get(index.get(b.code)?.territory.id ?? '') ?? 99;
+        return ta - tb || a.name.localeCompare(b.name);
+      })
+      .map((r) => r.code);
+  }, [geo, config, index]);
+
+  const regionLabels = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const p of filtered) n.set(p.state, (n.get(p.state) ?? 0) + 1);
+    const labels = new Map<string, string>();
+    for (const r of geo?.regions ?? []) {
+      const a = index.get(r.code);
+      const where = a ? `${a.territory.name}${a.confirmed ? '' : ', unconfirmed'}` : 'Unassigned';
+      const count = n.get(r.code) ?? 0;
+      labels.set(r.code, `${r.name}. ${where}. ${count} prospect${count === 1 ? '' : 's'}.`);
+    }
+    return labels;
+  }, [geo, index, filtered]);
+
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  const tabRegion =
+    activeRegion && regionOrder.includes(activeRegion)
+      ? activeRegion
+      : (regionOrder.find((c) => focusCodes?.has(c)) ?? regionOrder[0] ?? null);
+
+  const focusRegionEl = useCallback((code: string) => {
+    const el = svgRef.current?.querySelector<SVGPathElement>(`path.region[data-code="${code}"]`);
+    el?.focus();
+  }, []);
+
+  const showCardFor = useCallback(
+    (el: Element, code: string) => {
+      const svgBox = svgRef.current?.getBoundingClientRect();
+      const box = el.getBoundingClientRect();
+      if (!svgBox) return;
+      setHover(code, box.left + box.width / 2 - svgBox.left, box.top + box.height / 2 - svgBox.top);
+    },
+    [setHover],
+  );
+
+  const onRegionKey = useCallback(
+    (e: React.KeyboardEvent, code: string) => {
+      const i = regionOrder.indexOf(code);
+      let next: string | undefined;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = regionOrder[(i + 1) % regionOrder.length];
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = regionOrder[(i - 1 + regionOrder.length) % regionOrder.length];
+      else if (e.key === 'Home') next = regionOrder[0];
+      else if (e.key === 'End') next = regionOrder.at(-1);
+      else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const el = e.currentTarget.getBoundingClientRect();
+        const svgBox = svgRef.current!.getBoundingClientRect();
+        onRegionSelect(code, el.left + el.width / 2 - svgBox.left, el.top + el.height / 2 - svgBox.top);
+        return;
+      } else if (e.key === 'Escape') {
+        setHover(null);
+        return;
+      } else return;
+      e.preventDefault();
+      if (next) {
+        setActiveRegion(next);
+        focusRegionEl(next);
+      }
+    },
+    [regionOrder, focusRegionEl, onRegionSelect, setHover],
+  );
+
   const selectedProspect = panel?.kind === 'prospect' ? panel.id : null;
   // The selected pin draws last so it sits on top.
   const orderedPins = selectedProspect
     ? [...pins.filter((p) => p.prospect.id !== selectedProspect), ...pins.filter((p) => p.prospect.id === selectedProspect)]
     : pins;
+
+  const pinOrder = useMemo(
+    () => [...pins].sort((a, b) => a.prospect.name.localeCompare(b.prospect.name, undefined, { numeric: true })).map((p) => p.prospect.id),
+    [pins],
+  );
+  const [activePin, setActivePin] = useState<string | null>(null);
+  const tabPin =
+    activePin && pinOrder.includes(activePin)
+      ? activePin
+      : selectedProspect && pinOrder.includes(selectedProspect)
+        ? selectedProspect
+        : (pinOrder[0] ?? null);
+
+  const onPinKey = (e: React.KeyboardEvent, id: string) => {
+    const i = pinOrder.indexOf(id);
+    let next: string | undefined;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = pinOrder[(i + 1) % pinOrder.length];
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = pinOrder[(i - 1 + pinOrder.length) % pinOrder.length];
+    else if (e.key === 'Home') next = pinOrder[0];
+    else if (e.key === 'End') next = pinOrder.at(-1);
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openProspect(id);
+      return;
+    } else return;
+    e.preventDefault();
+    if (next) {
+      setActivePin(next);
+      svgRef.current?.querySelector<SVGGElement>(`g.pin[data-id="${next}"]`)?.focus();
+    }
+  };
+
+  const zoomBy = (factor: number) => {
+    const svgEl = svgRef.current;
+    const z = zoomRef.current;
+    if (svgEl && z) select(svgEl).transition().duration(250).call(z.scaleBy, factor);
+  };
 
   return (
     <div className="map" ref={containerRef}>
@@ -211,8 +323,8 @@ export function MapView({ boundaries, config, index, insets }: Props) {
           width={size.w}
           height={size.h}
           className="map-svg"
-          role="img"
-          aria-label="Map of North America colored by territory"
+          role="group"
+          aria-label="Territory map. Tab to the states and provinces, then use the arrow keys; Enter zooms in."
           onMouseLeave={() => setHover(null)}
         >
           <defs>
@@ -227,7 +339,21 @@ export function MapView({ boundaries, config, index, insets }: Props) {
                 <path key={c.key} d={c.d} />
               ))}
             </g>
-            <Regions regions={geo.regions} index={index} focusCodes={focusCodes} onHover={onRegionHover} onSelect={onRegionSelect} />
+            <Regions
+              regions={geo.regions}
+              index={index}
+              focusCodes={focusCodes}
+              labels={regionLabels}
+              tabCode={tabRegion}
+              onHover={onRegionHover}
+              onSelect={onRegionSelect}
+              onKey={onRegionKey}
+              onFocusRegion={(el, code) => {
+                setActiveRegion(code);
+                showCardFor(el, code);
+              }}
+            />
+            <path className="coast" d={geo.coast} aria-hidden="true" />
             <g className="hatches" aria-hidden="true">
               {geo.regions
                 .filter((r) => index.get(r.code)?.confirmed === false)
@@ -243,7 +369,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
                   <path key={r.code} d={r.d} className={r.code === selectedState ? 'outline selected' : 'outline'} />
                 ))}
             </g>
-            <g className="counts">
+            <g className="counts" aria-hidden="true">
               {counts.map((c) => (
                 <g key={c.code} transform={`translate(${c.x},${c.y})`}>
                   <g className="count-badge" onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}>
@@ -254,11 +380,22 @@ export function MapView({ boundaries, config, index, insets }: Props) {
                 </g>
               ))}
             </g>
-            <g className="pins">
+            <g
+              className="pins"
+              role="group"
+              aria-label={`${pins.length} prospect pins. Use the arrow keys to move between them; Enter opens one.`}
+            >
               {orderedPins.map((p) => (
                 <g key={p.prospect.id} transform={`translate(${p.x},${p.y})`}>
                   <g
                     className={`pin${p.unverified ? ' unverified' : ''}${p.overlap ? ' overlap' : ''}${selectedProspect === p.prospect.id ? ' selected' : ''}`}
+                    data-id={p.prospect.id}
+                    role="button"
+                    tabIndex={p.prospect.id === tabPin ? 0 : -1}
+                    aria-label={`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? '. Location unverified' : ''}${p.overlap ? '. Covered by 3 or more coverage roles' : ''}${dataIndex.openDealProspects.has(p.prospect.id) ? '. Open deal' : ''}.`}
+                    aria-pressed={selectedProspect === p.prospect.id}
+                    onFocus={() => setActivePin(p.prospect.id)}
+                    onKeyDown={(e) => onPinKey(e, p.prospect.id)}
                     onClick={(e) => {
                       e.stopPropagation();
                       openProspect(p.prospect.id);
@@ -276,6 +413,14 @@ export function MapView({ boundaries, config, index, insets }: Props) {
           </g>
         </svg>
       )}
+      <div className="zoom-buttons">
+        <button type="button" className="btn icon" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1.6)}>
+          +
+        </button>
+        <button type="button" className="btn icon" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1 / 1.6)}>
+          −
+        </button>
+      </div>
     </div>
   );
 }
@@ -284,15 +429,32 @@ interface RegionsProps {
   regions: { code: string; name: string; d: string }[];
   index: Map<string, RegionAssignment>;
   focusCodes: Set<string> | null;
+  labels: Map<string, string>;
+  /** The one region in the tab order; arrow keys move between the rest. */
+  tabCode: string | null;
   onHover(code: string | null, x: number, y: number): void;
   onSelect(code: string, x: number, y: number): void;
+  onKey(e: React.KeyboardEvent, code: string): void;
+  onFocusRegion(el: Element, code: string): void;
 }
 
 /** The region fills. Memoized so pin and hover changes do not redraw 63 paths. */
-const Regions = memo(function Regions({ regions, index, focusCodes, onHover, onSelect }: RegionsProps) {
+const Regions = memo(function Regions({
+  regions,
+  index,
+  focusCodes,
+  labels,
+  tabCode,
+  onHover,
+  onSelect,
+  onKey,
+  onFocusRegion,
+}: RegionsProps) {
   return (
     <g
       className="regions"
+      role="group"
+      aria-label="States and provinces"
       onMouseMove={(e) => {
         const code = (e.target as Element).getAttribute('data-code');
         const box = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
@@ -315,6 +477,12 @@ const Regions = memo(function Regions({ regions, index, focusCodes, onHover, onS
             data-code={r.code}
             className={`region${a ? '' : ' unassigned'}${dim ? ' dim' : ''}`}
             style={a ? { fill: a.territory.color } : undefined}
+            role="button"
+            tabIndex={r.code === tabCode ? 0 : -1}
+            aria-label={labels.get(r.code)}
+            onKeyDown={(e) => onKey(e, r.code)}
+            onFocus={(e) => onFocusRegion(e.currentTarget, r.code)}
+            onBlur={() => onHover(null, 0, 0)}
           />
         );
       })}

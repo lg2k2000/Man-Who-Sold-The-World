@@ -85,6 +85,17 @@ export function App() {
 
   return (
     <div className="app">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          const target = document.querySelector<HTMLElement>(view === 'map' ? 'path.region[tabindex="0"]' : '#main');
+          target?.focus();
+        }}
+      >
+        {view === 'map' ? 'Skip to the map' : 'Skip to content'}
+      </a>
       <Header config={config} homeId={homeId} />
       {hasSample && <SampleBanner />}
       {storeProblem && view === 'map' && (
@@ -98,7 +109,7 @@ export function App() {
       {view === 'map' && (
         <>
           {editing ? <EditBar regionNames={regionNames} /> : <FilterBar config={config} regionNames={regionNames} />}
-          <main className="stage" ref={stageRef}>
+          <main className="stage" ref={stageRef} id="main" tabIndex={-1}>
             {error && (
               <div className="map-error" role="alert">
                 <p>{error}</p>

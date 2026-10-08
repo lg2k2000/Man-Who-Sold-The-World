@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { TABLES, type Dataset, type TableName } from '../data/types';
-import { requestPersistence } from '../data/idb';
+import { describeStorageError, requestPersistence } from '../data/idb';
 import { guessTable, importTable, type ImportReport } from '../import/importer';
 import { backupFileName, makeBackup, restoreBackup } from '../import/backup';
 import { COLUMNS, FILE_FORMAT, TABLE_LABELS } from '../import/tables';
@@ -41,7 +41,7 @@ export function DataView() {
     try {
       await fn();
     } catch (e) {
-      setMessage(`Saving failed: ${e instanceof Error ? e.message : String(e)}. Nothing was changed.`);
+      setMessage(`Saving failed: ${describeStorageError(e)} Nothing was changed.`);
     } finally {
       setBusy(false);
     }
@@ -110,7 +110,7 @@ export function DataView() {
   const totalRows = TABLES.reduce((n, t) => n + data[t].length, 0);
 
   return (
-    <div className="page">
+    <main className="page" id="main" tabIndex={-1}>
       <div className="page-inner">
         <header className="page-head">
           <h2>Data</h2>
@@ -256,7 +256,7 @@ export function DataView() {
           </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
