@@ -29,6 +29,7 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 
 ## Open questions
 
+- Whether the owner's real snapshot (the FY27 team and their VME deals from Notion) may go into the private test artifact. On 2026-10-08 the session's permission check blocked staging it, and then blocked staging the app code into the artifact folder too, so the artifact still runs the second M7 commit. The owner decides; until then the import files in `data/` load through the Data page.
 - The repository is still public, so the reference screenshot crop (legend blanked) is not committed. Once the owner makes the repository private, a session can commit it to `docs/reference/`.
 - Hosting, so the owner can click around in the app. See "Open items" in `docs/plan.md`.
 
