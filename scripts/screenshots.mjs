@@ -52,6 +52,19 @@ const check = (label) => async (page) => {
   await page.getByLabel(label).check({ force: true });
   await page.waitForTimeout(500);
 };
+const ex = (name) => join(root, 'fixtures', 'import-examples', name);
+const pickFiles = (...names) => async (page) => {
+  await page.setInputFiles('#import-file', names.map(ex));
+  await page.waitForTimeout(300);
+};
+const clickText = (name) => async (page) => {
+  await page.getByRole('button', { name }).first().click();
+  await page.waitForTimeout(700);
+};
+const clickLink = (name) => async (page) => {
+  await page.getByRole('button', { name, exact: true }).first().click();
+  await page.waitForTimeout(500);
+};
 const away = async (page) => {
   await page.mouse.move(5, 300);
   await page.waitForTimeout(200);
@@ -81,6 +94,55 @@ const sets = {
     { name: 'person-panel', query: '?sample=1', steps: [search('Sample Person AD'), away] },
     { name: 'empty', query: '', steps: [hoverRegion('US-OR')] },
   ],
+  m3: [
+    { name: 'map-empty', query: '', steps: [away] },
+    { name: 'data-empty', query: '#/data', steps: [] },
+    { name: 'data-pending', query: '#/data', steps: [pickFiles('people.csv', 'partners.csv', 'broken/prospects.csv', 'broken/deals.csv')] },
+    {
+      name: 'data-report',
+      query: '#/data',
+      steps: [pickFiles('people.csv', 'partners.csv', 'broken/prospects.csv', 'broken/deals.csv'), clickText(/^Import 4 files/)],
+    },
+    {
+      name: 'map-after-import',
+      query: '#/data',
+      steps: [
+        pickFiles('people.csv', 'partners.csv', 'prospects.csv', 'coverage.csv', 'deals.csv', 'briefs.json', 'stakeholders.json'),
+        clickText(/^Import 7 files/),
+        clickLink('Map'),
+        clickRegion('US-WA', 0, 20),
+        away,
+      ],
+    },
+    { name: 'data-sample', query: '#/data', steps: [clickText('Load sample data')] },
+    { name: 'editor', query: '', steps: [clickLink('Edit'), clickRegion('CA-AB')] },
+    {
+      name: 'editor-moved',
+      query: '',
+      steps: [
+        clickLink('Edit'),
+        clickRegion('CA-AB'),
+        async (page) => {
+          await page.getByRole('dialog').getByLabel('Territory').selectOption('pacnorthwest');
+          await page.waitForTimeout(400);
+        },
+      ],
+    },
+    {
+      name: 'draft-notice',
+      query: '',
+      steps: [
+        clickLink('Edit'),
+        clickRegion('CA-AB'),
+        async (page) => {
+          await page.getByRole('dialog').getByLabel('Territory').selectOption('pacnorthwest');
+          await page.waitForTimeout(300);
+        },
+        clickLink('Done'),
+        away,
+      ],
+    },
+  ],
 };
 const shots = sets[milestone] ?? sets.m2;
 
@@ -98,7 +160,7 @@ try {
       page.on('pageerror', (e) => errors.push(`${shot.name}/${scheme}: ${e.message}`));
       page.on('console', (m) => m.type() === 'error' && errors.push(`${shot.name}/${scheme}: ${m.text()}`));
       await page.goto(base + '/' + shot.query);
-      await page.waitForSelector('.region');
+      await page.waitForSelector(shot.query.startsWith('#/') ? '.page' : '.region');
       await page.waitForTimeout(400);
       for (const step of shot.steps) await step(page);
       const file = join(outDir, `${shot.name}-${scheme}.png`);

@@ -1,0 +1,5 @@
+[
+  { "id": "sample-co-a-cio", "prospect_id": "sample-co-a", "name": "Sample Stakeholder A", "title": "Chief Information Officer", "role_in_decision": "economic buyer" },
+  { "id": "sample-co-a-infra", "prospect_id": "sample-co-a", "name": "Sample Stakeholder B", "title": "Director, Infrastructure", "reports_to": "sample-co-a-cio", "role_in_decision": "technical decision maker", "last_contact": "2026-09-30" },
+  { "id": "sample-co-a-virt", "prospect_id": "sample-co-a", "name": "Sample Stakeholder C", "title": "Virtualization Lead", "reports_to": "sample-co-a-infra", "role_in_decision": "champion" }
+]

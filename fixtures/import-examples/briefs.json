@@ -1,0 +1,16 @@
+[
+  {
+    "prospect_id": "sample-co-a",
+    "sections": {
+      "what_they_do": [
+        { "text": "Sample hospital group with four sites.", "source_url": "https://example.com/sample-co-a/about", "source_date": "2026-09-01", "confidence": "confirmed" }
+      ],
+      "virtualization_signals": [
+        { "text": "Job posting asks for vSphere experience.", "source_url": "https://example.com/sample-co-a/jobs", "source_date": "2026-09-20", "confidence": "reported" },
+        { "text": "Likely renewing hypervisor licenses next year.", "source_url": "https://example.com/sample-co-a/notes", "source_date": "2026-09-25", "confidence": "inferred" }
+      ]
+    },
+    "source": "example file",
+    "updated_by": "example"
+  }
+]

@@ -1,0 +1,6 @@
+person_email,prospect_id,source,verified_at,updated_by
+sample.d@example.com,sample-co-a,example file,,example
+sample.e@example.com,sample-co-a,example file,,example
+sample.f@example.com,sample-co-a,example file,,example
+sample.g@example.com,sample-co-a,example file,,example
+sample.d@example.com,sample-co-b,example file,,example

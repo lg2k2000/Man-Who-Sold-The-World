@@ -20,8 +20,8 @@ const files = {
 };
 
 // Share of points kept by Visvalingam simplification. Tuned for a laptop map
-// that zooms to single states; see the M1 PR for the resulting file size.
-const SIMPLIFY = process.env.SIMPLIFY ?? '6%';
+// that zooms to single states; docs/progress.md records the resulting size.
+const SIMPLIFY = process.env.SIMPLIFY ?? '15%';
 
 mkdirSync(cache, { recursive: true });
 mkdirSync(dirname(out), { recursive: true });

@@ -1,0 +1,15 @@
+/** Hands the viewer a file to save. */
+export function downloadText(fileName: string, text: string, type = 'application/json') {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function readFileText(file: File): Promise<string> {
+  return file.text();
+}

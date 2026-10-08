@@ -8,6 +8,7 @@ import { HAWAII, mainProjection, type Boundaries } from './geo';
 import { fitTransform, mainBounds, unionBounds, type Bounds } from './bounds';
 import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
+import { useEditTarget } from '../ui/TerritoryEditor';
 import { filterProspects, hasOverlap, territoryCodes, type DataIndex } from '../data/derive';
 import type { Prospect } from '../data/types';
 
@@ -50,11 +51,16 @@ export function MapView({ boundaries, config, index, insets }: Props) {
   const panel = useApp((s) => s.panel);
   const selectState = useApp((s) => s.selectState);
   const openProspect = useApp((s) => s.openProspect);
+  const editing = useApp((s) => s.editingTerritories);
+  const openEditor = useEditTarget((s) => s.open);
   const setHover = useHover((s) => s.set);
   const onRegionHover = useCallback((code: string | null, x: number, y: number) => setHover(code, x, y), [setHover]);
   const onRegionSelect = useCallback(
-    (code: string) => selectState(code, index.get(code)?.territory.id ?? null),
-    [selectState, index],
+    (code: string, x: number, y: number) => {
+      if (editing) openEditor(code, x, y);
+      else selectState(code, index.get(code)?.territory.id ?? null);
+    },
+    [editing, openEditor, selectState, index],
   );
 
   useLayoutEffect(() => {
@@ -164,7 +170,9 @@ export function MapView({ boundaries, config, index, insets }: Props) {
 
   // Pins show when a state or territory is chosen or the viewer has zoomed in;
   // otherwise each state shows a count.
-  const scope: 'state' | 'territory' | 'all' | 'counts' = selectedState
+  const scope: 'state' | 'territory' | 'all' | 'counts' | 'none' = editing
+    ? 'none'
+    : selectedState
     ? 'state'
     : focusId
       ? 'territory'
@@ -173,7 +181,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
         : 'counts';
 
   const pins = useMemo(() => {
-    if (!geo || scope === 'counts') return [];
+    if (!geo || scope === 'counts' || scope === 'none') return [];
     const list = scope === 'state' ? filtered.filter((p) => p.state === selectedState) : filtered;
     return placePins(list, geo, dataIndex);
   }, [geo, scope, filtered, selectedState, dataIndex]);
@@ -199,6 +207,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
       {size && geo && (
         <svg
           ref={svgRef}
+          data-editing={editing || undefined}
           width={size.w}
           height={size.h}
           className="map-svg"
@@ -285,7 +294,7 @@ interface RegionsProps {
   index: Map<string, RegionAssignment>;
   focusCodes: Set<string> | null;
   onHover(code: string | null, x: number, y: number): void;
-  onSelect(code: string): void;
+  onSelect(code: string, x: number, y: number): void;
 }
 
 /** The region fills. Memoized so pin and hover changes do not redraw 63 paths. */
@@ -301,7 +310,8 @@ const Regions = memo(function Regions({ regions, index, focusCodes, onHover, onS
       onMouseLeave={() => onHover(null, 0, 0)}
       onClick={(e) => {
         const code = (e.target as Element).getAttribute('data-code');
-        if (code) onSelect(code);
+        const box = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
+        if (code) onSelect(code, e.clientX - box.left, e.clientY - box.top);
       }}
     >
       {regions.map((r) => {
