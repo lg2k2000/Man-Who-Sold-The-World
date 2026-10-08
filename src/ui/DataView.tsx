@@ -49,7 +49,9 @@ export function DataView() {
 
   const choose = (files: FileList | null) => {
     setReports([]);
-    setPending([...(files ?? [])].map((file) => ({ file, table: guessTable(file.name) ?? (file.name.endsWith('.json') ? 'briefs' : 'people') })));
+    setPending(
+      [...(files ?? [])].map((file) => ({ file, table: guessTable(file.name) ?? (file.name.endsWith('.json') ? 'briefs' : 'people') })),
+    );
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -113,7 +115,8 @@ export function DataView() {
         <header className="page-head">
           <h2>Data</h2>
           <p className="muted">
-            Everything here lives in {store?.kind ?? 'this browser'} and never leaves it. {totalRows === 0 ? 'Nothing is imported yet.' : `${totalRows} rows in all.`}
+            Everything here lives in {store?.kind ?? 'this browser'} and never leaves it.{' '}
+            {totalRows === 0 ? 'Nothing is imported yet.' : `${totalRows} rows in all.`}
           </p>
           {storeProblem && <p className="callout warn">{storeProblem.message}</p>}
         </header>
@@ -121,7 +124,8 @@ export function DataView() {
         <section className="card">
           <h3>Import a file</h3>
           <p className="muted small">
-            Pick one or more files. The table is guessed from each file name; check it before importing. People and partners go first, then prospects, then the rest.
+            Pick one or more files. The table is guessed from each file name; check it before importing. People and partners go first, then
+            prospects, then the rest.
           </p>
           <div className="import-row">
             <input
@@ -160,7 +164,11 @@ export function DataView() {
                     ))}
                   </select>
                   <span className="muted small">
-                    needs {COLUMNS[p.table].filter((c) => c.required).map((c) => c.name).join(', ')}
+                    needs{' '}
+                    {COLUMNS[p.table]
+                      .filter((c) => c.required)
+                      .map((c) => c.name)
+                      .join(', ')}
                   </span>
                 </div>
               ))}
@@ -191,7 +199,11 @@ export function DataView() {
                 <tr key={t}>
                   <th scope="row">{TABLE_LABELS[t]}</th>
                   <td className="num">{data[t].length}</td>
-                  <td className="muted">{data[t].length === 0 ? EMPTY_HINT[t] : `${(data[t] as { is_sample?: boolean }[]).filter((r) => r.is_sample).length || 'No'} sample rows`}</td>
+                  <td className="muted">
+                    {data[t].length === 0
+                      ? EMPTY_HINT[t]
+                      : `${(data[t] as { is_sample?: boolean }[]).filter((r) => r.is_sample).length || 'No'} sample rows`}
+                  </td>
                   <td>
                     {data[t].length > 0 && (
                       <button type="button" className="link" onClick={() => clearTable(t)} disabled={busy}>
@@ -208,7 +220,9 @@ export function DataView() {
         <div className="card-row">
           <section className="card">
             <h3>Sample data</h3>
-            <p className="muted small">Fake people, partners, and companies for trying the app. A banner shows while any sample row is loaded.</p>
+            <p className="muted small">
+              Fake people, partners, and companies for trying the app. A banner shows while any sample row is loaded.
+            </p>
             <div className="btn-row">
               <button type="button" className="btn solid" onClick={loadSample} disabled={busy}>
                 Load sample data
@@ -220,12 +234,21 @@ export function DataView() {
           </section>
           <section className="card">
             <h3>Backup</h3>
-            <p className="muted small">One JSON file with every row, to keep a copy or move the data to another browser. Store it outside the repository.</p>
+            <p className="muted small">
+              One JSON file with every row, to keep a copy or move the data to another browser. Store it outside the repository.
+            </p>
             <div className="btn-row">
               <button type="button" className="btn solid" onClick={exportAll} disabled={totalRows === 0}>
                 Export everything
               </button>
-              <input ref={restoreRef} type="file" accept=".json,application/json" className="visually-hidden" id="restore-file" onChange={(e) => restore(e.target.files)} />
+              <input
+                ref={restoreRef}
+                type="file"
+                accept=".json,application/json"
+                className="visually-hidden"
+                id="restore-file"
+                onChange={(e) => restore(e.target.files)}
+              />
               <label htmlFor="restore-file" className="btn">
                 Restore from file
               </label>

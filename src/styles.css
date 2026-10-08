@@ -109,7 +109,13 @@ body,
 body {
   background: var(--page);
   color: var(--text);
-  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font:
+    14px/1.4 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -244,9 +250,10 @@ input {
   min-width: 190px;
   appearance: none;
   padding-right: 28px;
-  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-    linear-gradient(135deg, currentColor 50%, transparent 50%);
-  background-position: calc(100% - 15px) 14px, calc(100% - 10px) 14px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 14px,
+    calc(100% - 10px) 14px;
   background-size: 5px 5px;
   background-repeat: no-repeat;
 }
@@ -640,7 +647,10 @@ input {
   padding: 1px 6px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 4px;
-  font: 11px/16px ui-monospace, Menlo, monospace;
+  font:
+    11px/16px ui-monospace,
+    Menlo,
+    monospace;
   color: rgba(255, 255, 255, 0.8);
   pointer-events: none;
 }

@@ -79,7 +79,9 @@ export function Search() {
           }
         }}
       />
-      <kbd className="search-kbd" aria-hidden="true">/</kbd>
+      <kbd className="search-kbd" aria-hidden="true">
+        /
+      </kbd>
       {showList && (
         <ul className="search-list" role="listbox" id={listId}>
           {hits.length === 0 && <li className="search-empty">No person, partner, or prospect matches "{query.trim()}".</li>}

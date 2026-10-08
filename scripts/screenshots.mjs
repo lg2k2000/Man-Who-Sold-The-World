@@ -22,24 +22,30 @@ const regionCenter = async (page, code) => {
   const box = await page.locator(`path.region[data-code="${code}"]`).boundingBox();
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
-const hoverRegion = (code, dx = 0, dy = 0) => async (page) => {
-  const c = await regionCenter(page, code);
-  await page.mouse.move(c.x + dx, c.y + dy);
-  await page.waitForTimeout(300);
-};
-const clickRegion = (code, dx = 0, dy = 0) => async (page) => {
-  const c = await regionCenter(page, code);
-  await page.mouse.click(c.x + dx, c.y + dy);
-  await page.waitForTimeout(900);
-};
-const search = (text, pick = true) => async (page) => {
-  await page.getByRole('combobox', { name: /search/i }).fill(text);
-  await page.waitForTimeout(250);
-  if (pick) {
-    await page.keyboard.press('Enter');
+const hoverRegion =
+  (code, dx = 0, dy = 0) =>
+  async (page) => {
+    const c = await regionCenter(page, code);
+    await page.mouse.move(c.x + dx, c.y + dy);
+    await page.waitForTimeout(300);
+  };
+const clickRegion =
+  (code, dx = 0, dy = 0) =>
+  async (page) => {
+    const c = await regionCenter(page, code);
+    await page.mouse.click(c.x + dx, c.y + dy);
     await page.waitForTimeout(900);
-  }
-};
+  };
+const search =
+  (text, pick = true) =>
+  async (page) => {
+    await page.getByRole('combobox', { name: /search/i }).fill(text);
+    await page.waitForTimeout(250);
+    if (pick) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(900);
+    }
+  };
 const tab = (name) => async (page) => {
   await page.getByRole('tab', { name: new RegExp(`^${name}`) }).click();
   await page.waitForTimeout(250);
@@ -53,10 +59,12 @@ const check = (label) => async (page) => {
   await page.waitForTimeout(500);
 };
 const ex = (name) => join(root, 'fixtures', 'import-examples', name);
-const pickFiles = (...names) => async (page) => {
-  await page.setInputFiles('#import-file', names.map(ex));
-  await page.waitForTimeout(300);
-};
+const pickFiles =
+  (...names) =>
+  async (page) => {
+    await page.setInputFiles('#import-file', names.map(ex));
+    await page.waitForTimeout(300);
+  };
 const clickText = (name) => async (page) => {
   await page.getByRole('button', { name }).first().click();
   await page.waitForTimeout(700);
@@ -70,7 +78,10 @@ const header = (name) => async (page) => {
   await page.waitForTimeout(200);
 };
 const row = (text) => async (page) => {
-  await page.getByRole('row', { name: new RegExp(text) }).first().click();
+  await page
+    .getByRole('row', { name: new RegExp(text) })
+    .first()
+    .click();
   await page.waitForTimeout(400);
 };
 const away = async (page) => {
@@ -166,7 +177,16 @@ const sets = {
         },
       ],
     },
-    { name: 'people-filtered', query: '?sample=1#/people', steps: [async (page) => { await page.getByLabel('Filter people by role').selectOption('networking'); await page.waitForTimeout(200); }] },
+    {
+      name: 'people-filtered',
+      query: '?sample=1#/people',
+      steps: [
+        async (page) => {
+          await page.getByLabel('Filter people by role').selectOption('networking');
+          await page.waitForTimeout(200);
+        },
+      ],
+    },
     { name: 'partners', query: '?sample=1#/partners', steps: [] },
     { name: 'partner-form', query: '?sample=1#/partners', steps: [row('Sample Partner 2(?!\d)'), away] },
     { name: 'people-empty', query: '#/people', steps: [] },

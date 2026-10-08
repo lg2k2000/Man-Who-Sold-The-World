@@ -126,7 +126,7 @@ function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNam
                 {owner.name}
               </button>
             ) : (
-              prospect.hpe_owner_email ?? <span className="muted">None imported</span>
+              (prospect.hpe_owner_email ?? <span className="muted">None imported</span>)
             )}
           </dd>
           <dt>Primary partner</dt>
@@ -337,8 +337,13 @@ function DealsTab({ prospect }: { prospect: Prospect }) {
       <tfoot>
         <tr>
           <td colSpan={4} className="muted small">
-            As of {deals.map((d) => d.as_of).sort().at(-1)}. HPE owner:{' '}
-            {deals[0]?.hpe_owner_email ? index.personByEmail.get(deals[0].hpe_owner_email)?.name ?? deals[0].hpe_owner_email : 'none'}
+            As of{' '}
+            {deals
+              .map((d) => d.as_of)
+              .sort()
+              .at(-1)}
+            . HPE owner:{' '}
+            {deals[0]?.hpe_owner_email ? (index.personByEmail.get(deals[0].hpe_owner_email)?.name ?? deals[0].hpe_owner_email) : 'none'}
           </td>
         </tr>
       </tfoot>

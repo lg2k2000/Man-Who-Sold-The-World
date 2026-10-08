@@ -30,7 +30,13 @@ describe('saving a person', () => {
     const r = savePerson(d, null, personForm(), ctx);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.record).toMatchObject({ email: 'new@example.com', roles: ['storage', 'sled'], states: ['US-WA', 'CA-BC'], updated_by: 'Sample Editor', source: 'edited in app' });
+    expect(r.record).toMatchObject({
+      email: 'new@example.com',
+      roles: ['storage', 'sled'],
+      states: ['US-WA', 'CA-BC'],
+      updated_by: 'Sample Editor',
+      source: 'edited in app',
+    });
     expect(r.record.is_sample).toBeUndefined();
     expect(r.data.people).toHaveLength(d.people.length + 1);
   });
@@ -53,10 +59,17 @@ describe('saving a person', () => {
 
   it('carries a changed email over to coverage, prospect owners, and deal owners', async () => {
     const d = await sample();
-    const owner = d.prospects.find((p) => p.hpe_owner_email && d.deals.some((x) => x.hpe_owner_email === p.hpe_owner_email))!.hpe_owner_email!;
+    const owner = d.prospects.find(
+      (p) => p.hpe_owner_email && d.deals.some((x) => x.hpe_owner_email === p.hpe_owner_email),
+    )!.hpe_owner_email!;
     const before = personDeleteImpact(d, owner);
     const person = d.people.find((p) => p.email === owner)!;
-    const r = savePerson(d, owner, personForm({ name: person.name, email: 'renamed@example.com', role: person.roles, states: person.states.join(';') }), ctx);
+    const r = savePerson(
+      d,
+      owner,
+      personForm({ name: person.name, email: 'renamed@example.com', role: person.roles, states: person.states.join(';') }),
+      ctx,
+    );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(personDeleteImpact(r.data, owner)).toEqual({ coverage: 0, prospects: 0, deals: 0 });
@@ -96,7 +109,13 @@ describe('saving a partner', () => {
   it('adds a partner with contacts from the form', async () => {
     const r = savePartner(await sample(), null, partnerForm(), ctx);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.record).toMatchObject({ states: ['US-OR'], contacts: [{ email: 'c@example.com' }], source: 'phone call', verified_at: '2026-10-08' });
+    if (r.ok)
+      expect(r.record).toMatchObject({
+        states: ['US-OR'],
+        contacts: [{ email: 'c@example.com' }],
+        source: 'phone call',
+        verified_at: '2026-10-08',
+      });
   });
 
   it('rejects a contact with a bad email or no name', async () => {
@@ -113,7 +132,12 @@ describe('saving a partner', () => {
     const used = d.deals.find((x) => x.partner_id)!.partner_id!;
     const before = partnerDeleteImpact(d, used);
     const partner = d.partners.find((p) => p.id === used)!;
-    const r = savePartner(d, used, partnerForm({ id: 'sample-partner-renamed', name: partner.name, states: partner.states.join(';'), contacts: partner.contacts }), ctx);
+    const r = savePartner(
+      d,
+      used,
+      partnerForm({ id: 'sample-partner-renamed', name: partner.name, states: partner.states.join(';'), contacts: partner.contacts }),
+      ctx,
+    );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(partnerDeleteImpact(r.data, used)).toEqual({ prospects: 0, deals: 0 });

@@ -185,7 +185,10 @@ describe('prospects', () => {
   });
 
   it('warns, without rejecting, about a partner or owner not imported yet and coordinates off the map', () => {
-    const r = run('prospects', 'id,name,state,lat,lng,segment,primary_partner_id,hpe_owner_email\nsample-co-9,Sample Co 9,WA,47.6,122.3,sled,nobody-yet,x@example.com\n');
+    const r = run(
+      'prospects',
+      'id,name,state,lat,lng,segment,primary_partner_id,hpe_owner_email\nsample-co-9,Sample Co 9,WA,47.6,122.3,sled,nobody-yet,x@example.com\n',
+    );
     expect(r.report.rejected).toEqual([]);
     expect(r.report.warnings.map((w) => w.column)).toEqual(['lat', 'primary_partner_id', 'hpe_owner_email']);
   });
@@ -242,7 +245,11 @@ describe('deals', () => {
 
   it('rejects a duplicate op_id in one file', () => {
     const d = base();
-    const r = run('deals', header + 'OPE-0000000003,sample-co-1,Develop,,,,2026-10-01\nOPE-0000000003,sample-co-2,Develop,,,,2026-10-01\n', d);
+    const r = run(
+      'deals',
+      header + 'OPE-0000000003,sample-co-1,Develop,,,,2026-10-01\nOPE-0000000003,sample-co-2,Develop,,,,2026-10-01\n',
+      d,
+    );
     expect(reasons(r)).toEqual(['3 op_id: op_id OPE-0000000003 already appears on row 2 of this file']);
   });
 
@@ -256,10 +263,17 @@ describe('deals', () => {
 });
 
 describe('briefs (JSON)', () => {
-  const item = (confidence: string) => ({ text: 'Runs a data center.', source_url: 'https://example.com/a', source_date: '2026-09-01', confidence });
+  const item = (confidence: string) => ({
+    text: 'Runs a data center.',
+    source_url: 'https://example.com/a',
+    source_date: '2026-09-01',
+    confidence,
+  });
 
   it('imports a list and fills missing sections with empty lists', () => {
-    const json = JSON.stringify([{ prospect_id: 'sample-co-1', sections: { what_they_do: [item('confirmed')], tech_stack: [item('inferred')] } }]);
+    const json = JSON.stringify([
+      { prospect_id: 'sample-co-1', sections: { what_they_do: [item('confirmed')], tech_stack: [item('inferred')] } },
+    ]);
     const r = run('briefs', json, base());
     expect(reasons(r)).toEqual([]);
     expect(r.rows![0]!.sections.what_they_do).toHaveLength(1);
@@ -273,7 +287,10 @@ describe('briefs (JSON)', () => {
 
   it('rejects a brief whose item has no source, bad date, or bad confidence', () => {
     const json = JSON.stringify([
-      { prospect_id: 'sample-co-1', sections: { recent_it_news: [{ text: 'x', source_url: 'not a url', source_date: '2026-09-01', confidence: 'confirmed' }] } },
+      {
+        prospect_id: 'sample-co-1',
+        sections: { recent_it_news: [{ text: 'x', source_url: 'not a url', source_date: '2026-09-01', confidence: 'confirmed' }] },
+      },
       { prospect_id: 'sample-co-2', sections: { filings: [{ ...item('confirmed'), source_date: 'last week' }] } },
       { prospect_id: 'sample-co-1', sections: { filings: [item('rumored')] } },
     ]);
@@ -379,7 +396,10 @@ describe('the example import files', () => {
 
   it('report every problem in the broken files', () => {
     let d = emptyDataset();
-    for (const [table, file] of [['people', 'people.csv'], ['partners', 'partners.csv']] as const) {
+    for (const [table, file] of [
+      ['people', 'people.csv'],
+      ['partners', 'partners.csv'],
+    ] as const) {
       d = { ...d, [table]: importTable(table, read(file), file, d, config).rows! };
     }
     const p = importTable('prospects', read('broken/prospects.csv'), 'prospects.csv', d, config);

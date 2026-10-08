@@ -173,12 +173,12 @@ export function MapView({ boundaries, config, index, insets }: Props) {
   const scope: 'state' | 'territory' | 'all' | 'counts' | 'none' = editing
     ? 'none'
     : selectedState
-    ? 'state'
-    : focusId
-      ? 'territory'
-      : zoomedIn
-        ? 'all'
-        : 'counts';
+      ? 'state'
+      : focusId
+        ? 'territory'
+        : zoomedIn
+          ? 'all'
+          : 'counts';
 
   const pins = useMemo(() => {
     if (!geo || scope === 'counts' || scope === 'none') return [];
@@ -227,13 +227,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
                 <path key={c.key} d={c.d} />
               ))}
             </g>
-            <Regions
-              regions={geo.regions}
-              index={index}
-              focusCodes={focusCodes}
-              onHover={onRegionHover}
-              onSelect={onRegionSelect}
-            />
+            <Regions regions={geo.regions} index={index} focusCodes={focusCodes} onHover={onRegionHover} onSelect={onRegionSelect} />
             <g className="hatches" aria-hidden="true">
               {geo.regions
                 .filter((r) => index.get(r.code)?.confirmed === false)
@@ -252,10 +246,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
             <g className="counts">
               {counts.map((c) => (
                 <g key={c.code} transform={`translate(${c.x},${c.y})`}>
-                  <g
-                    className="count-badge"
-                    onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}
-                  >
+                  <g className="count-badge" onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}>
                     <circle r={c.count > 9 ? 12 : 10} />
                     <text dy="0.35em">{c.count}</text>
                     <title>{`${c.name}: ${c.count} prospect${c.count === 1 ? '' : 's'}`}</title>

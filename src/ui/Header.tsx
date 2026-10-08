@@ -31,7 +31,13 @@ export function Header({ config, homeId }: Props) {
       </div>
       <nav className="views" aria-label="Views">
         {NAV.map((n) => (
-          <button key={n.view} type="button" className={view === n.view ? 'on' : ''} aria-current={view === n.view ? 'page' : undefined} onClick={() => setView(n.view)}>
+          <button
+            key={n.view}
+            type="button"
+            className={view === n.view ? 'on' : ''}
+            aria-current={view === n.view ? 'page' : undefined}
+            onClick={() => setView(n.view)}
+          >
             {n.label}
           </button>
         ))}
@@ -40,7 +46,13 @@ export function Header({ config, homeId }: Props) {
       <div className="controls">
         {view === 'map' && (
           <>
-            <button type="button" className="btn" onClick={() => focusTerritory(homeId)} disabled={!home} title={home ? `Frame ${home.name}` : undefined}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => focusTerritory(homeId)}
+              disabled={!home}
+              title={home ? `Frame ${home.name}` : undefined}
+            >
               My territory
             </button>
             <button type="button" className="btn" onClick={() => focusTerritory(null)}>
@@ -79,7 +91,14 @@ function SettingsMenu({ config, homeId }: Props) {
 
   return (
     <div className="menu" ref={ref}>
-      <button type="button" className="btn icon" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(!open)} title="Settings">
+      <button
+        type="button"
+        className="btn icon"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(!open)}
+        title="Settings"
+      >
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="currentColor"

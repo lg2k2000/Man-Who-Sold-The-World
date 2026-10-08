@@ -37,9 +37,7 @@ describe('territory teams', () => {
   });
 
   it('formats the line like the reference legend', () => {
-    expect(teamLine(teamFor('pacnorthwest', people))).toBe(
-      'Sample Person A / Sample Person B (Morpheus) + Sample Person C (OpsRamp)',
-    );
+    expect(teamLine(teamFor('pacnorthwest', people))).toBe('Sample Person A / Sample Person B (Morpheus) + Sample Person C (OpsRamp)');
   });
 
   it('returns an empty line when nobody is imported', () => {

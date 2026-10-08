@@ -41,10 +41,7 @@ export function App() {
 
   const homeId = savedHome && config.territories.some((t) => t.id === savedHome) ? savedHome : config.default_focus;
 
-  const regionNames = useMemo(
-    () => new Map((boundaries?.regions ?? []).map((r) => [r.properties.code, r.properties.name])),
-    [boundaries],
-  );
+  const regionNames = useMemo(() => new Map((boundaries?.regions ?? []).map((r) => [r.properties.code, r.properties.name])), [boundaries]);
 
   useEffect(() => {
     const root = document.documentElement;

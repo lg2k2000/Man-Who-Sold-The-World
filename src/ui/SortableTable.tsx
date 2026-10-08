@@ -33,13 +33,20 @@ export function SortableTable<T>({ caption, columns, rows, rowKey, onOpen, initi
 
   return (
     <table className="records">
-      <caption className="visually-hidden">{caption}, sorted by {columns.find((c) => c.id === sort.id)?.label} {sort.dir === 'asc' ? 'ascending' : 'descending'}</caption>
+      <caption className="visually-hidden">
+        {caption}, sorted by {columns.find((c) => c.id === sort.id)?.label} {sort.dir === 'asc' ? 'ascending' : 'descending'}
+      </caption>
       <thead>
         <tr>
           {columns.map((c) => {
             const active = sort.id === c.id;
             return (
-              <th key={c.id} scope="col" className={c.className} aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+              <th
+                key={c.id}
+                scope="col"
+                className={c.className}
+                aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+              >
                 {c.sort ? (
                   <button
                     type="button"

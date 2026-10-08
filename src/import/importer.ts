@@ -74,7 +74,8 @@ function readJson(text: string, table: TableName): { rows: SourceRow[]; headers:
   if (data && typeof data === 'object' && !Array.isArray(data) && Array.isArray((data as Record<string, unknown>)[table])) {
     data = (data as Record<string, unknown>)[table];
   }
-  if (!Array.isArray(data)) return { rows: [], headers: [], error: `The file must hold a list of ${table}, or an object with a "${table}" list.` };
+  if (!Array.isArray(data))
+    return { rows: [], headers: [], error: `The file must hold a list of ${table}, or an object with a "${table}" list.` };
   const rows: SourceRow[] = data.map((item, i) => ({
     row: i + 1,
     raw: item && typeof item === 'object' && !Array.isArray(item) ? normalizeKeys(item as Raw) : { __not_object: true },
@@ -133,11 +134,17 @@ export function importTable<T extends TableName>(
     const missing = spec.filter((c) => c.required && !headers.includes(c.name)).map((c) => c.name);
     // In JSON a missing key is a per-item problem; in CSV a missing column is the whole file's.
     if (format === 'csv' && missing.length) {
-      report.fileErrors.push(`The file has no ${missing.join(', ')} column${missing.length > 1 ? 's' : ''}. ${table} files need: ${spec.filter((c) => c.required).map((c) => c.name).join(', ')}.`);
+      report.fileErrors.push(
+        `The file has no ${missing.join(', ')} column${missing.length > 1 ? 's' : ''}. ${table} files need: ${spec
+          .filter((c) => c.required)
+          .map((c) => c.name)
+          .join(', ')}.`,
+      );
     }
   }
   report.ignoredColumns = headers.filter((h) => !known.has(h) && h !== '__not_object');
-  if (format === 'csv' && source.length === 0 && !report.fileErrors.length) report.fileErrors.push('The file has a header row but no data rows.');
+  if (format === 'csv' && source.length === 0 && !report.fileErrors.length)
+    report.fileErrors.push('The file has a header row but no data rows.');
   if (report.fileErrors.length) return { rows: null, report };
   return validateRows(table, source, report, current, config, options);
 }
@@ -178,9 +185,10 @@ export function validateRows<T extends TableName>(
       warn: (column, reason) => rowWarnings.push({ row, column, reason }),
     });
     if (format === 'json') {
-      for (const c of spec) if (c.required && raw[c.name] === undefined && !reader.problems.some((p) => p.column === c.name)) {
-        reader.fail(c.name, `${c.name} is missing`);
-      }
+      for (const c of spec)
+        if (c.required && raw[c.name] === undefined && !reader.problems.some((p) => p.column === c.name)) {
+          reader.fail(c.name, `${c.name} is missing`);
+        }
     }
     if (reader.problems.length) {
       for (const p of reader.problems) report.rejected.push({ row, column: p.column, reason: p.reason });
@@ -228,7 +236,15 @@ export function validateRows<T extends TableName>(
 }
 
 function keyColumn(table: TableName): string {
-  return { people: 'email', coverage: 'person_email and prospect_id', partners: 'id', prospects: 'id', deals: 'op_id', briefs: 'prospect_id', stakeholders: 'id' }[table];
+  return {
+    people: 'email',
+    coverage: 'person_email and prospect_id',
+    partners: 'id',
+    prospects: 'id',
+    deals: 'op_id',
+    briefs: 'prospect_id',
+    stakeholders: 'id',
+  }[table];
 }
 
 /** A reports_to that points nowhere, or at another prospect's stakeholder, is kept but flagged. */
@@ -241,9 +257,18 @@ function checkReportsTo(
   for (const { row, value } of accepted.values()) {
     if (!value.reports_to) continue;
     const boss = byId.get(value.reports_to);
-    if (!boss) report.warnings.push({ row, column: 'reports_to', reason: `reports_to ${value.reports_to} is not a known stakeholder; ${value.name} shows at the top of the tree` });
+    if (!boss)
+      report.warnings.push({
+        row,
+        column: 'reports_to',
+        reason: `reports_to ${value.reports_to} is not a known stakeholder; ${value.name} shows at the top of the tree`,
+      });
     else if (boss.prospect_id !== value.prospect_id) {
-      report.warnings.push({ row, column: 'reports_to', reason: `reports_to ${value.reports_to} belongs to ${boss.prospect_id}, not ${value.prospect_id}` });
+      report.warnings.push({
+        row,
+        column: 'reports_to',
+        reason: `reports_to ${value.reports_to} belongs to ${boss.prospect_id}, not ${value.prospect_id}`,
+      });
     }
   }
 }
