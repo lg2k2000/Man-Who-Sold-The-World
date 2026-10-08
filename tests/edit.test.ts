@@ -65,35 +65,56 @@ describe('saving a person', () => {
     if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['email', 'name', 'role', 'states', 'verified_at']);
   });
 
-  it('carries a changed email over to coverage, company owners, and deal owners', async () => {
+  it('adds a person with no email, keyed on the name, and refuses the same name twice', async () => {
     const d = await sample();
-    const owner = d.deals.find((x) => x.hpe_owner_email)!.hpe_owner_email!;
-    const p = d.people.find((x) => x.email === owner)!;
-    const r = savePerson(
-      d,
-      owner,
-      personForm({ name: p.name, email: 'moved@example.com', role: p.roles, states: p.states.join(';') }),
-      ctx,
-    );
+    const r = savePerson(d, null, personForm({ email: '' }), ctx);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.data.deals.some((x) => x.hpe_owner_email === owner)).toBe(false);
-    expect(r.data.deals.some((x) => x.hpe_owner_email === 'moved@example.com')).toBe(true);
-    expect(r.data.coverage.some((c) => c.person_email === owner)).toBe(false);
-    expect(r.data.companies.some((c) => c.hpe_owner_email === owner)).toBe(false);
-    expect(r.record.is_sample).toBe(true);
+    expect(r.record).toMatchObject({ id: 'person-sample-person-new', email: '' });
+    const again = savePerson(r.data, null, personForm({ email: '' }), ctx);
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.errors.name).toContain('already in the HPE team');
+  });
+
+  it('keeps coverage and owner links when the email changes, and refuses an email someone else has', async () => {
+    const d = await sample();
+    const owner = d.deals.find((x) => x.hpe_owner_id)!.hpe_owner_id!;
+    const p = d.people.find((x) => x.id === owner)!;
+    const form = (email: string) => personForm({ name: p.name, email, role: p.roles, states: p.states.join(';') });
+    const r = savePerson(d, owner, form('moved@example.com'), ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.record).toMatchObject({ id: owner, email: 'moved@example.com', is_sample: true });
+    expect(r.data.deals.filter((x) => x.hpe_owner_id === owner)).toHaveLength(d.deals.filter((x) => x.hpe_owner_id === owner).length);
+    expect(r.data.coverage.filter((c) => c.person_id === owner)).toHaveLength(d.coverage.filter((c) => c.person_id === owner).length);
+    const taken = d.people.find((x) => x.id !== owner)!.email;
+    const clash = savePerson(d, owner, form(taken), ctx);
+    expect(clash.ok).toBe(false);
+    if (!clash.ok) expect(clash.errors.email).toContain('already belongs to');
+  });
+
+  it('links deals that named a new person before they joined the team', async () => {
+    const d = await sample();
+    const target = d.deals[0]!;
+    d.deals[0] = { ...target, hpe_owner_id: null, owner_name: 'Sample Person New' };
+    d.deals[1] = { ...d.deals[1]!, hpe_owner_id: 'new@example.com', owner_name: '' };
+    const r = savePerson(d, null, personForm(), ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data.deals[0]).toMatchObject({ hpe_owner_id: 'new@example.com', owner_name: '' });
+    expect(r.data.deals[1]!.hpe_owner_id).toBe('new@example.com');
   });
 });
 
 describe('deleting a person', () => {
   it('removes coverage links, clears company owners, and keeps the name on deals as text', async () => {
     const d = await sample();
-    const owner = d.deals.find((x) => x.hpe_owner_email)!.hpe_owner_email!;
+    const owner = d.deals.find((x) => x.hpe_owner_id)!.hpe_owner_id!;
     const impact = personDeleteImpact(d, owner);
     expect(impact.deals).toBeGreaterThan(0);
     const next = deletePerson(d, owner);
-    const name = d.people.find((p) => p.email === owner)!.name;
-    expect(next.coverage.some((c) => c.person_email === owner)).toBe(false);
+    const name = d.people.find((p) => p.id === owner)!.name;
+    expect(next.coverage.some((c) => c.person_id === owner)).toBe(false);
     expect(next.deals.filter((x) => x.owner_name === name)).toHaveLength(impact.deals);
   });
 });

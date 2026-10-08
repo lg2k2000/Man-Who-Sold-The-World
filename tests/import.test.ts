@@ -219,11 +219,11 @@ describe('deals', () => {
       id: 'OPE-0000000001',
       amount: 250000,
       close_date: '2027-01-15',
-      hpe_owner_email: 'a@example.com',
+      hpe_owner_id: 'a@example.com',
       as_of: TODAY,
     });
     expect(a!.contact_ids).toEqual([data.contacts[0]!.id]);
-    expect(b).toMatchObject({ company_id: a!.company_id, amount: 1200000, hpe_owner_email: null, owner_name: 'Sample Person Z' });
+    expect(b).toMatchObject({ company_id: a!.company_id, amount: 1200000, hpe_owner_id: null, owner_name: 'Sample Person Z' });
     expect(r.report.created.map((c) => c.name)).toEqual(['Sample Co 1 (prospect)', 'Sample Partner 1 (partner)', 'Sample Contact X']);
     expect(r.report.matches).toEqual([{ from: 'sample co 1 inc', to: 'Sample Co 1' }]);
     expect(r.report.warnings.map((w) => w.reason)).toEqual(['owner "Sample Person Z" is not in the HPE team; kept as text']);
@@ -349,9 +349,32 @@ describe('people and coverage', () => {
     const r = run('coverage', 'person_email,company\na@example.com,Sample Co 404\nb@example.com,Sample Co 404\n', d);
     expect(reasons(r)).toEqual([
       '2 company: company "Sample Co 404" is not in Companies; import companies first',
+      '3 person: person b@example.com is not in the HPE team; import the team first',
       '3 company: company "Sample Co 404" is not in Companies; import companies first',
-      '3 person_email: person_email b@example.com is not in the HPE team; import the team first',
     ]);
+  });
+
+  it('takes the team by name alone, and fills in an email that arrives later', () => {
+    const team = 'name,role,territories\nSample Person A,morpheus,PacNorthwest\nSample Person B,opsramp,PacNorthwest; Southwest\n';
+    const d = run('people', team).data!;
+    expect(d.people.map((p) => [p.id, p.email, p.territories])).toEqual([
+      ['person-sample-person-a', '', ['pacnorthwest']],
+      ['person-sample-person-b', '', ['pacnorthwest', 'southwest']],
+    ]);
+    const later = run('people', 'name,email,role\nsample person a,A@Example.com,morpheus\n', d);
+    expect(later.report).toMatchObject({ added: 0, updated: 1 });
+    expect(later.data!.people[0]).toMatchObject({ id: 'person-sample-person-a', email: 'a@example.com', territories: ['pacnorthwest'] });
+  });
+
+  it('links coverage and deal owners to people named without an email', () => {
+    let d = run('people', 'name,role\nSample Person A,eam\n').data!;
+    d = run('companies', 'name,state\nSample Co 1,WA\n', d).data!;
+    d = run('deals', 'company,name,stage,hpe_owner\nSample Co 1,Pilot,Qualify,Sample Person B\n', d).data!;
+    expect(d.deals[0]).toMatchObject({ hpe_owner_id: null, owner_name: 'Sample Person B' });
+    d = run('coverage', 'person,company\nSample Person A,Sample Co 1\n', d).data!;
+    expect(d.coverage[0]!.person_id).toBe('person-sample-person-a');
+    d = run('people', 'name,role\nSample Person B,storage\n', d).data!;
+    expect(d.deals[0]).toMatchObject({ hpe_owner_id: 'person-sample-person-b', owner_name: '' });
   });
 });
 

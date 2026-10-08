@@ -53,8 +53,8 @@ describe('overlap rule', () => {
       people,
       companies: [company(1), company(2)],
       coverage: [
-        ...people.map((p) => ({ person_email: p.email, company_id: 'co-1', ...prov })),
-        { person_email: people[0]!.email, company_id: 'co-2', ...prov },
+        ...people.map((p) => ({ person_id: p.id, company_id: 'co-1', ...prov })),
+        { person_id: people[0]!.id, company_id: 'co-2', ...prov },
       ],
     });
     const index = indexDataset(d);
@@ -150,8 +150,8 @@ describe('deal helpers', () => {
   it('names the owner from the team, or the name the source gave', () => {
     const d = dataset({ people: [person('A', ['eam'])], companies: [company(1)] });
     const index = indexDataset(d);
-    expect(ownerName(index, { hpe_owner_email: 'p.A@example.com' })).toBe('Sample Person A');
-    expect(ownerName(index, { hpe_owner_email: null, owner_name: 'Sample Person Z' })).toBe('Sample Person Z');
+    expect(ownerName(index, { hpe_owner_id: 'p.A@example.com' })).toBe('Sample Person A');
+    expect(ownerName(index, { hpe_owner_id: null, owner_name: 'Sample Person Z' })).toBe('Sample Person Z');
     expect(dealLabel(index, deal(1, 'co-1', 'Develop', { name: '' }))).toBe('Sample Co 1 deal');
   });
 

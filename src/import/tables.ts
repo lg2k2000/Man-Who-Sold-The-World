@@ -283,8 +283,9 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     { name: 'name', required: true, description: 'Full name.', aliases: ['full name'] },
     {
       name: 'email',
-      required: true,
-      description: 'Work email; the key for a person. Re-importing the same email updates the person.',
+      required: false,
+      description:
+        'Work email. Optional: a row without one matches the person with the same name, and an email added later fills it in. Re-importing the same email updates the person.',
       aliases: ['email address'],
     },
     {
@@ -308,10 +309,16 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
       aliases: ['coverage states'],
     },
     { name: 'notes', required: false, description: 'Free text.' },
+    { name: 'id', required: false, description: "The app's own key for the person, in backups. Leave it empty." },
     ...PROVENANCE_COLUMNS,
   ],
   coverage: [
-    { name: 'person_email', required: true, description: 'Email of someone in the HPE team.', aliases: ['email', 'person'] },
+    {
+      name: 'person',
+      required: true,
+      description: 'Someone in the HPE team, by email or by name.',
+      aliases: ['person email', 'person name', 'email', 'hpe person', 'name'],
+    },
     {
       name: 'company',
       required: true,
@@ -352,9 +359,9 @@ export const TABLE_LABELS: Record<TableName, string> = {
 export function keyOf<T extends TableName>(table: T, row: Dataset[T][number]): string {
   switch (table) {
     case 'people':
-      return (row as Person).email;
+      return (row as Person).id;
     case 'coverage':
-      return `${(row as Coverage).person_email} ${(row as Coverage).company_id}`;
+      return `${(row as Coverage).person_id} ${(row as Coverage).company_id}`;
     case 'briefs':
       return (row as Brief).company_id;
     default:
@@ -365,10 +372,12 @@ export function keyOf<T extends TableName>(table: T, row: Dataset[T][number]): s
 /** How a duplicate row is named in the report. */
 export function describeKey(table: TableName, row: Dataset[TableName][number], companyName: (id: string) => string): string {
   switch (table) {
-    case 'people':
-      return `email ${(row as Person).email}`;
+    case 'people': {
+      const p = row as Person;
+      return p.email ? `email ${p.email}` : p.name;
+    }
     case 'coverage':
-      return `${(row as Coverage).person_email} on ${companyName((row as Coverage).company_id)}`;
+      return `${(row as Coverage).person_id} on ${companyName((row as Coverage).company_id)}`;
     case 'briefs':
       return `a brief for ${companyName((row as Brief).company_id)}`;
     case 'companies':
@@ -459,20 +468,20 @@ function territoryRefs(ctx: ParseContext) {
     });
 }
 
-/** The HPE owner cell: an email or a name. An owner not in the team is kept and warned about. */
+/**
+ * The HPE owner cell: an email or a name. An owner not in the team is kept
+ * and warned about, and links up when the team import brings them.
+ */
 function owner(r: RowReader, ctx: ParseContext) {
   const who = r.get('hpe_owner', (v) => ctx.resolver.person(v));
-  if (!who || (!who.email && !who.name)) return { email: null, name: '' };
+  if (!who || (!who.id && !who.name)) return { id: null, name: '' };
   if (!who.known) {
-    ctx.warn(
-      'hpe_owner',
-      who.email ? `${who.email} is not in the HPE team yet` : `owner "${who.name}" is not in the HPE team; kept as text`,
-    );
+    ctx.warn('hpe_owner', who.id ? `${who.id} is not in the HPE team yet` : `owner "${who.name}" is not in the HPE team; kept as text`);
   }
-  if (who.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(who.email)) {
-    r.fail('hpe_owner', `hpe_owner "${who.email}" is not an email address`);
+  if (!who.known && who.id && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(who.id)) {
+    r.fail('hpe_owner', `hpe_owner "${who.id}" is not an email address`);
   }
-  return { email: who.email, name: who.known ? '' : who.name };
+  return { id: who.id, name: who.known ? '' : who.name };
 }
 
 export const PARSERS: { [T in TableName]: (r: RowReader, ctx: ParseContext) => Dataset[T][number] } = {
@@ -524,7 +533,7 @@ export const PARSERS: { [T in TableName]: (r: RowReader, ctx: ParseContext) => D
       ),
       tier_fit: r.get('tier_fit', (v) => f.oneOf(v, TIER_FITS, 'unknown', { 'vm essentials': 'vme' })),
       primary_partner_id,
-      hpe_owner_email: hpeOwner.email,
+      hpe_owner_id: hpeOwner.id,
       states: r.get('states', f.regions),
       has_done_vme: r.get('has_done_vme', (v) => f.oneOf(v, YES_NO_UNKNOWN, 'unknown', YES_NO_ALIASES)),
       has_done_morpheus_enterprise: r.get('has_done_morpheus_enterprise', (v) => f.oneOf(v, YES_NO_UNKNOWN, 'unknown', YES_NO_ALIASES)),
@@ -585,7 +594,7 @@ export const PARSERS: { [T in TableName]: (r: RowReader, ctx: ParseContext) => D
       amount: r.get('amount', f.amount),
       close_date: r.get('close_date', f.optionalDate),
       forecast_category: r.get('forecast_category', f.text),
-      hpe_owner_email: hpeOwner.email,
+      hpe_owner_id: hpeOwner.id,
       owner_name: hpeOwner.name,
       partner_id,
       contact_ids: contact_ids ?? [],
@@ -606,9 +615,20 @@ export const PARSERS: { [T in TableName]: (r: RowReader, ctx: ParseContext) => D
       if (s !== 'aruba' && s !== 'juniper') throw new f.FieldError(`"${f.text(v)}" is not aruba or juniper`);
       return s;
     });
-    return {
-      name: r.get('name', (v) => f.required(v, 'a name')),
-      email: r.get('email', f.email),
+    const name = r.get('name', (v) => f.required(v, 'a name'));
+    const email = r.get('email', (v) => f.optionalEmail(v) ?? '') ?? '';
+    // A person's id is an email or made from a name, so it is kept as written.
+    const explicitId = r.get('id', f.text) || null;
+    let id = '';
+    try {
+      if (name) id = ctx.resolver.personRowId(explicitId ?? null, name, email);
+    } catch (e) {
+      r.fail('name', `name ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const person: Person = {
+      id,
+      email,
+      name,
       roles,
       specialty,
       territories: r.get('territories', territoryRefs(ctx)),
@@ -616,19 +636,22 @@ export const PARSERS: { [T in TableName]: (r: RowReader, ctx: ParseContext) => D
       notes: r.get('notes', f.text),
       ...provenance(r, ctx),
     };
+    if (id) ctx.resolver.registerPerson(person);
+    return person;
   },
 
   coverage(r, ctx) {
-    const person_email = r.get('person_email', f.email);
+    const person_id = r.get('person', (v) => {
+      const who = ctx.resolver.person(f.required(v, 'a person'));
+      if (!who.known) throw new f.FieldError(`${f.text(v)} is not in the HPE team; import the team first`);
+      return who.id!;
+    });
     const company_id = r.get('company', (v) => {
       const found = ctx.resolver.findCompany(f.required(v, 'a company'));
       if (!found) throw new f.FieldError(`"${f.text(v)}" is not in Companies; import companies first`);
       return found.id;
     });
-    if (person_email && !ctx.current.people.some((p) => p.email === person_email)) {
-      r.fail('person_email', `person_email ${person_email} is not in the HPE team; import the team first`);
-    }
-    return { person_email, company_id, ...provenance(r, ctx) };
+    return { person_id, company_id, ...provenance(r, ctx) };
   },
 
   briefs(r, ctx) {
@@ -677,7 +700,7 @@ const LABELS: Record<string, string> = {
   tier_fit: 'Tier fit',
   has_done_vme: 'Has done VME',
   has_done_morpheus_enterprise: 'Has done Morpheus Enterprise',
-  person_email: 'HPE person email',
+  person: 'HPE person',
   verified_at: 'Verified on',
   as_of: 'As of',
   id: 'Id',

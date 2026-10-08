@@ -49,8 +49,10 @@ const membersOf = Object.fromEntries(config.territories.map((t) => [t.id, t.memb
 let personCount = 0;
 function person(roles, territories, states, extra = {}) {
   const tag = letters(personCount++);
+  const email = `sample.person.${tag.toLowerCase()}@example.com`;
   return {
-    email: `sample.person.${tag.toLowerCase()}@example.com`,
+    id: email,
+    email,
     name: `Sample Person ${tag}`,
     roles,
     specialty: null,
@@ -115,7 +117,7 @@ const blank = {
   segment: null,
   tier_fit: 'unknown',
   primary_partner_id: null,
-  hpe_owner_email: null,
+  hpe_owner_id: null,
   states: [],
   has_done_vme: 'unknown',
   has_done_morpheus_enterprise: 'unknown',
@@ -261,7 +263,7 @@ for (const [city, state, lat, lng, weight] of cities) {
       segment,
       tier_fit: pick(['vme', 'vme', 'advanced', 'enterprise', 'unknown']),
       primary_partner_id: partnersHere.length && chance(0.8) ? pick(partnersHere).id : null,
-      hpe_owner_email: eams.length ? pick(eams).email : null,
+      hpe_owner_id: eams.length ? pick(eams).id : null,
       notes: '',
       territory_hint: t,
       ...prov,
@@ -275,11 +277,11 @@ for (const p of prospects) delete p.territory_hint;
 const coverage = [];
 for (const pr of prospects) {
   const here = coveragePeople.filter((p) => p.states.includes(pr.state));
-  const eam = here.find((p) => p.email === pr.hpe_owner_email);
-  const chosen = new Set(eam ? [eam.email] : []);
+  const eam = here.find((p) => p.id === pr.hpe_owner_id);
+  const chosen = new Set(eam ? [eam.id] : []);
   const extra = Math.floor(rand() * 5);
-  for (let i = 0; i < extra; i++) chosen.add(pick(here).email);
-  for (const email of chosen) coverage.push({ person_email: email, company_id: pr.id, ...prov });
+  for (let i = 0; i < extra; i++) chosen.add(pick(here).id);
+  for (const id of chosen) coverage.push({ person_id: id, company_id: pr.id, ...prov });
 }
 
 // Briefs for about one prospect in five.
@@ -380,7 +382,7 @@ prospects.forEach((pr, i) => {
       amount: chance(0.9) ? Math.round(((25 + rand() * rand() * 2400) * 1000) / 5000) * 5000 : null,
       close_date: `2027-${pad(1 + Math.floor(rand() * 10), 2)}-${pad(1 + Math.floor(rand() * 28), 2)}`,
       forecast_category: forecastFor[stage],
-      hpe_owner_email: pr.hpe_owner_email,
+      hpe_owner_id: pr.hpe_owner_id,
       owner_name: '',
       partner_id: pr.primary_partner_id,
       contact_ids: here.length ? [here[0].id, ...(chance(0.5) && here[3] ? [here[3].id] : [])] : [],

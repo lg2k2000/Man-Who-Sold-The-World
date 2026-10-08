@@ -148,8 +148,8 @@ export function CompaniesView({ regionNames }: { regionNames: Map<string, string
       {
         id: 'owner',
         label: 'HPE owner',
-        sort: (c) => (c.hpe_owner_email ? (index.personByEmail.get(c.hpe_owner_email)?.name ?? c.hpe_owner_email) : null),
-        render: (c) => (c.hpe_owner_email ? (index.personByEmail.get(c.hpe_owner_email)?.name ?? c.hpe_owner_email) : ''),
+        sort: (c) => (c.hpe_owner_id ? (index.personById.get(c.hpe_owner_id)?.name ?? c.hpe_owner_id) : null),
+        render: (c) => (c.hpe_owner_id ? (index.personById.get(c.hpe_owner_id)?.name ?? c.hpe_owner_id) : ''),
       },
     ],
     [regionNames, regionIndex, index],
@@ -256,7 +256,7 @@ function CompanyForm({ company, regionNames, onClose }: { company: Company | nul
   const [segment, setSegment] = useState<string>(company?.segment ?? '');
   const [tier, setTier] = useState<string>(company?.tier_fit ?? 'unknown');
   const [partner, setPartner] = useState(company?.primary_partner_id ?? '');
-  const [owner, setOwner] = useState(company?.hpe_owner_email ?? '');
+  const [owner, setOwner] = useState(company?.hpe_owner_id ?? '');
   const [states, setStates] = useState(statesText(company?.states ?? []));
   const [vme, setVme] = useState<string>(company?.has_done_vme ?? 'unknown');
   const [enterprise, setEnterprise] = useState<string>(company?.has_done_morpheus_enterprise ?? 'unknown');
@@ -462,7 +462,7 @@ function CompanyForm({ company, regionNames, onClose }: { company: Company | nul
         label="HPE owner"
         value={owner}
         onChange={setOwner}
-        options={[{ value: '', label: 'None' }, ...people.map((p) => ({ value: p.email, label: p.name }))]}
+        options={[{ value: '', label: 'None' }, ...people.map((p) => ({ value: p.id, label: p.name }))]}
         error={errors.hpe_owner}
       />
       <TextField label="Industry" value={industry} onChange={setIndustry} error={errors.industry} />

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import rawConfig from '../config/territories.json';
 import { parseTerritoryConfig } from '../src/config/territories';
 import { IndexedDbStore } from '../src/data/idb';
-import { migrateV1, type V1Dataset } from '../src/data/migrate';
+import { migrateV1, migrateV2, type V1Dataset, type V2Dataset } from '../src/data/migrate';
 import { MemoryStore } from '../src/data/store';
 import { emptyDataset, TABLES, type Dataset } from '../src/data/types';
 import { BACKUP_FORMAT, makeBackup, restoreBackup } from '../src/import/backup';
@@ -130,6 +130,60 @@ describe('moving version 1 data to the CRM model', () => {
   });
 });
 
+/** The sample dataset as version 2 stored it: people keyed by email. */
+async function v2(): Promise<V2Dataset> {
+  const d = await sample();
+  return {
+    companies: d.companies.map(({ hpe_owner_id, ...c }) => ({ ...c, hpe_owner_email: hpe_owner_id })),
+    contacts: d.contacts,
+    deals: d.deals.map(({ hpe_owner_id, ...x }) => ({ ...x, hpe_owner_email: hpe_owner_id })),
+    people: d.people.map(({ id: _id, ...p }) => p),
+    coverage: d.coverage.map(({ person_id, ...c }) => ({ ...c, person_email: person_id })),
+    briefs: d.briefs,
+  };
+}
+
+describe('moving version 2 data to people keyed by id', () => {
+  it('gives every person their email as id, so every link still holds', async () => {
+    expect(migrateV2(await v2())).toEqual(await sample());
+  });
+
+  it('upgrades a browser database saved by version 2', async () => {
+    const name = `test-v2-${Math.random()}`;
+    const old = await openDB(name, 2, {
+      upgrade(db) {
+        db.createObjectStore('companies', { keyPath: 'id' });
+        db.createObjectStore('contacts', { keyPath: 'id' });
+        db.createObjectStore('deals', { keyPath: 'id' });
+        db.createObjectStore('people', { keyPath: 'email' });
+        db.createObjectStore('coverage', { keyPath: ['person_email', 'company_id'] });
+        db.createObjectStore('briefs', { keyPath: 'company_id' });
+      },
+    });
+    const data = await v2();
+    for (const [table, rows] of Object.entries(data)) for (const row of rows as object[]) await old.put(table, row);
+    old.close();
+
+    const loaded = await new IndexedDbStore(name).load();
+    const expected = migrateV2(data);
+    for (const t of TABLES) expect(loaded[t]).toHaveLength(expected[t].length);
+    expect(loaded.people.every((p) => p.id === p.email)).toBe(true);
+    expect(new Set(loaded.coverage.map((c) => `${c.person_id} ${c.company_id}`))).toEqual(
+      new Set(expected.coverage.map((c) => `${c.person_id} ${c.company_id}`)),
+    );
+  });
+
+  it('restores a version 2 backup', async () => {
+    const text = JSON.stringify({ format: BACKUP_FORMAT, version: 2, data: await v2() });
+    const restored = restoreBackup(text, 'v2.json', config);
+    expect(restored.error).toBeNull();
+    expect(restored.reports.flatMap((r) => r.rejected)).toEqual([]);
+    const d = await sample();
+    expect(restored.data!.coverage).toHaveLength(d.coverage.length);
+    expect(restored.data!.deals.filter((x) => x.hpe_owner_id)).toHaveLength(d.deals.filter((x) => x.hpe_owner_id).length);
+  });
+});
+
 describe('IndexedDB store', () => {
   it('saves and loads every table', async () => {
     const store = new IndexedDbStore(`test-${Math.random()}`);
@@ -153,9 +207,9 @@ describe('IndexedDB store', () => {
   it('keys coverage on person and company together', async () => {
     const store = new IndexedDbStore(`test-${Math.random()}`);
     await store.replaceTable('coverage', [
-      { person_email: 'a@example.com', company_id: 'co-1', ...prov },
-      { person_email: 'a@example.com', company_id: 'co-2', ...prov },
-      { person_email: 'b@example.com', company_id: 'co-1', ...prov },
+      { person_id: 'a@example.com', company_id: 'co-1', ...prov },
+      { person_id: 'a@example.com', company_id: 'co-2', ...prov },
+      { person_id: 'person-sample-person-b', company_id: 'co-1', ...prov },
     ]);
     expect((await store.load()).coverage).toHaveLength(3);
   });
@@ -181,7 +235,7 @@ describe('backup', () => {
   it('round-trips the whole sample dataset, sample flags included', async () => {
     const data = await sample();
     const text = makeBackup(data, new Date('2026-10-08T00:00:00Z'));
-    expect(JSON.parse(text)).toMatchObject({ format: BACKUP_FORMAT, version: 2 });
+    expect(JSON.parse(text)).toMatchObject({ format: BACKUP_FORMAT, version: 3 });
     const restored = restoreBackup(text, 'backup.json', config);
     expect(restored.error).toBeNull();
     expect(restored.reports.flatMap((r) => r.rejected)).toEqual([]);

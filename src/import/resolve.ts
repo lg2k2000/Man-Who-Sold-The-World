@@ -61,6 +61,7 @@ export class Resolver {
   private dealById = new Map<string, Deal>();
   private dealByOp = new Map<string, Deal>();
   private dealByName = new Index<Deal>();
+  private personById = new Map<string, Person>();
   private personByEmail = new Map<string, Person>();
   private personByName = new Index<Person>();
 
@@ -83,10 +84,7 @@ export class Resolver {
     for (const c of current.companies) this.indexCompany(c);
     for (const c of current.contacts) this.indexContact(c);
     for (const d of current.deals) this.indexDeal(d);
-    for (const p of current.people) {
-      this.personByEmail.set(p.email, p);
-      this.personByName.add(personMatchKey(p.name), p);
-    }
+    for (const p of current.people) this.indexPerson(p);
   }
 
   begin() {
@@ -139,6 +137,18 @@ export class Resolver {
     if (this.dealById.get(d.id) === d) this.dealById.delete(d.id);
     if (d.op_id && this.dealByOp.get(d.op_id) === d) this.dealByOp.delete(d.op_id);
     if (d.name) this.dealByName.remove(`${d.company_id} ${fold(d.name).trim()}`, d);
+  }
+
+  private indexPerson(p: Person) {
+    this.personById.set(p.id, p);
+    if (p.email) this.personByEmail.set(p.email, p);
+    this.personByName.add(personMatchKey(p.name), p);
+  }
+
+  private unindexPerson(p: Person) {
+    if (this.personById.get(p.id) === p) this.personById.delete(p.id);
+    if (p.email && this.personByEmail.get(p.email) === p) this.personByEmail.delete(p.email);
+    this.personByName.remove(personMatchKey(p.name), p);
   }
 
   private noteMatch(from: string, to: string) {
@@ -224,18 +234,54 @@ export class Resolver {
     });
   }
 
-  /** An HPE person by email or by name. A name with no match comes back as a name only. */
-  person(v: unknown): { email: string | null; name: string; known: boolean } {
+  /**
+   * An HPE person by id, email, or name. An email with no match comes back as
+   * the id a person with that email would get; a name with no match comes
+   * back as a name only.
+   */
+  person(v: unknown): { id: string | null; name: string; known: boolean } {
     const value = text(v);
-    if (!value) return { email: null, name: '', known: false };
+    if (!value) return { id: null, name: '', known: false };
+    const byId = this.personById.get(value) ?? this.personById.get(value.toLowerCase());
+    if (byId) return { id: byId.id, name: byId.name, known: true };
     if (value.includes('@')) {
       const email = value.toLowerCase();
-      return { email, name: this.personByEmail.get(email)?.name ?? '', known: this.personByEmail.has(email) };
+      const p = this.personByEmail.get(email);
+      return p ? { id: p.id, name: p.name, known: true } : { id: email, name: '', known: false };
     }
     const hits = this.personByName.get(personMatchKey(value));
-    if (hits.length === 1) return { email: hits[0]!.email, name: hits[0]!.name, known: true };
+    if (hits.length === 1) return { id: hits[0]!.id, name: hits[0]!.name, known: true };
     if (hits.length > 1) throw new FieldError(`"${value}" matches ${hits.length} people in the HPE team; use an email address`);
-    return { email: null, name: value, known: false };
+    return { id: null, name: value, known: false };
+  }
+
+  /**
+   * A row in the HPE team file: its own id if it gave one, the person with its
+   * email, the person with its name (when that person has no other email), or
+   * a new id: the email, or one made from the name.
+   */
+  personRowId(id: string | null, name: string, email: string): string {
+    if (id) return id;
+    const byEmail = email ? this.personByEmail.get(email) : undefined;
+    if (byEmail) return byEmail.id;
+    const byName = this.personByName.get(personMatchKey(name)).filter((p) => !email || !p.email || p.email === email);
+    if (byName.length === 1) return byName[0]!.id;
+    if (byName.length > 1)
+      throw new FieldError(`"${name}" matches ${byName.length} people in the HPE team; add an email to tell them apart`);
+    return uniqueId(email || `person-${slugify(name)}`, (x) => this.personById.has(x));
+  }
+
+  /** Makes an accepted HPE team row findable by later rows. */
+  registerPerson(p: Person) {
+    const previous = this.personById.get(p.id);
+    if (previous) this.unindexPerson(previous);
+    this.indexPerson(p);
+    this.pending.push({
+      undo: () => {
+        this.unindexPerson(p);
+        if (previous) this.indexPerson(previous);
+      },
+    });
   }
 
   /** A contact at a company, by id, email, or name; created when new and creating is allowed. */

@@ -135,9 +135,9 @@ interface AppState {
   clearFilters(): void;
   /** Shows a company on the map with its panel open; a partner shows the states it works in. */
   openCompany(id: string, tab?: CompanyTab): void;
-  openPerson(email: string): void;
+  openPerson(id: string): void;
   closePanel(): void;
-  editPerson(email: string | null): void;
+  editPerson(id: string | null): void;
   editCompany(id: string | null): void;
   editContact(id: string | null): void;
   editDeal(id: string | null): void;
@@ -280,12 +280,12 @@ export const useApp = create<AppState>((set, get) => ({
       frameRequest: s.frameRequest + 1,
     }));
   },
-  openPerson(email) {
-    const p = get().index.personByEmail.get(email);
+  openPerson(id) {
+    const p = get().index.personById.get(id);
     if (!p) return;
     set((s) => ({
       view: 'map',
-      panel: { kind: 'person', id: email },
+      panel: { kind: 'person', id },
       focusTerritoryId: null,
       filters: { ...s.filters, territoryId: null },
       selectedState: null,
@@ -297,8 +297,8 @@ export const useApp = create<AppState>((set, get) => ({
   closePanel() {
     set({ panel: null, highlightCodes: null });
   },
-  editPerson(email) {
-    set({ view: 'team', editRecord: email === null ? null : { kind: 'person', id: email } });
+  editPerson(id) {
+    set({ view: 'team', editRecord: id === null ? null : { kind: 'person', id } });
   },
   editCompany(id) {
     set({ view: 'companies', editRecord: id === null ? null : { kind: 'company', id } });

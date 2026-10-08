@@ -15,7 +15,8 @@ import {
 export const prov = { source: 'test', verified_at: null, updated_by: 'test' };
 
 export function person(tag: string, roles: Role[], states: string[] = ['US-WA'], territories: string[] = []): Person {
-  return { email: `p.${tag}@example.com`, name: `Sample Person ${tag}`, roles, specialty: null, territories, states, notes: '', ...prov };
+  const email = `p.${tag}@example.com`;
+  return { id: email, email, name: `Sample Person ${tag}`, roles, specialty: null, territories, states, notes: '', ...prov };
 }
 
 export function company(n: number, state: string | null = 'US-WA', extra: Partial<Company> = {}): Company {
@@ -50,7 +51,7 @@ export function deal(n: number, companyId: string, stage: string, extra: Partial
     amount: null,
     close_date: null,
     forecast_category: '',
-    hpe_owner_email: null,
+    hpe_owner_id: null,
     owner_name: '',
     partner_id: null,
     contact_ids: [],

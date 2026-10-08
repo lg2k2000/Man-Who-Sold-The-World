@@ -264,7 +264,7 @@ function DealForm({ deal, onClose }: { deal: Deal | null; regionNames: Map<strin
   const [amount, setAmount] = useState(deal?.amount?.toString() ?? '');
   const [closeDate, setCloseDate] = useState(deal?.close_date ?? '');
   const [forecast, setForecast] = useState(deal?.forecast_category ?? '');
-  const [owner, setOwner] = useState(deal?.hpe_owner_email ?? deal?.owner_name ?? '');
+  const [owner, setOwner] = useState(deal?.hpe_owner_id ?? deal?.owner_name ?? '');
   const [partner, setPartner] = useState(deal?.partner_id ?? '');
   const [contacts, setContacts] = useState<string[]>(deal?.contact_ids ?? []);
   const [nextStep, setNextStep] = useState(deal?.next_step ?? '');
@@ -281,7 +281,7 @@ function DealForm({ deal, onClose }: { deal: Deal | null; regionNames: Map<strin
   );
   const ownerOptions = [
     { value: '', label: 'None' },
-    ...people.map((p) => ({ value: p.email, label: p.name })),
+    ...people.map((p) => ({ value: p.id, label: p.name })),
     ...(deal?.owner_name ? [{ value: deal.owner_name, label: `${deal.owner_name} (not in the HPE team)` }] : []),
   ];
 

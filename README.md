@@ -69,14 +69,15 @@ How rows are matched:
 - Companies match by name, ignoring case, punctuation, a leading "The", and endings such as Inc, LLC, Corp, and Company: "SAMPLE CO B, INC." updates "Sample Co B". A name with no match becomes a new company: a prospect when a deal or contact names it, a partner when it is named as a partner. A new company from a deal sheet takes the state and city on the row, so it gets a pin.
 - Deals match by op ID, then by company and deal name. A row needs one or the other.
 - Contacts match by email or name at the same company.
-- HPE owners match by email or by name as it appears in the HPE team.
+- HPE team members match by email, or by name when the row has no email, so a team can go in by name and get its emails later. An owner or coverage row can name a person by email or by name.
+- HPE owners match by email or by name as it appears in the HPE team. An owner who is not in the team yet is kept as text and links up when the team import brings them.
 - An import adds and updates; it never blanks a field. A column the file does not have, or an empty cell, leaves the stored value alone. Tick "Replace all" to swap a whole table instead.
 
 Dates can be `2026-10-15`, `10/15/2026`, `15-Oct-2026`, or spreadsheet dates. Amounts can be `1250000`, `$1,250,000`, or `1.25M`, in US dollars. States can be `WA`, `US-WA`, or `Washington`. Multi-value cells (roles, territories, states, contacts) are separated by semicolons.
 
 `fixtures/import-examples/` holds a fake example of each import, plus `manager-pipeline.xlsx`, laid out like a Salesforce pipeline report (`npm run example-workbook` rebuilds it).
 
-Data lives in this browser's IndexedDB and never leaves it. "Export everything" saves one JSON backup file; "Restore from file" loads one, including backups made before the CRM change. Keep import files and backups in `data/` (Git ignores it) or outside the repository.
+Data lives in this browser's IndexedDB and never leaves it. "Export everything" saves one JSON backup file; "Restore from file" loads one, including backups made by earlier versions. Keep import files and backups in `data/` (Git ignores it) or outside the repository.
 
 <!-- import-columns:start -->
 
@@ -161,12 +162,13 @@ An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. T
 | Column | Required | Meaning | Also matches |
 | --- | --- | --- | --- |
 | `name` | yes | Full name. | full name |
-| `email` | yes | Work email; the key for a person. Re-importing the same email updates the person. | email address |
+| `email` | no | Work email. Optional: a row without one matches the person with the same name, and an email added later fills it in. Re-importing the same email updates the person. | email address |
 | `role` | yes | One or more of morpheus, opsramp, eam, storage, compute, networking, greenlake, zerto, sled, other, separated by semicolons. Labels such as "Morpheus specialist" also work. | roles, title |
 | `specialty` | no | aruba or juniper, for networking specialists. |  |
 | `territories` | no | Territory teams the person sits on, by id (pacnorthwest) or name (PacNorthwest), separated by semicolons. | territory |
 | `states` | no | States and provinces the person covers, such as WA; OR; BC or US-WA; US-OR; CA-BC. | coverage states |
 | `notes` | no | Free text. |  |
+| `id` | no | The app's own key for the person, in backups. Leave it empty. |  |
 | `source` | no | Where the row came from, as text or a URL. Defaults to the file name. |  |
 | `verified_at` | no | Date someone last checked the row. | verified, verified on |
 | `updated_by` | no | Who made the file. Defaults to "import". |  |
@@ -177,7 +179,7 @@ An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. T
 
 | Column | Required | Meaning | Also matches |
 | --- | --- | --- | --- |
-| `person_email` | yes | Email of someone in the HPE team. | email, person |
+| `person` | yes | Someone in the HPE team, by email or by name. | person email, person name, email, hpe person, name |
 | `company` | yes | A company already in Companies, by name or id. | company id, prospect id, account, account name |
 | `source` | no | Where the row came from, as text or a URL. Defaults to the file name. |  |
 | `verified_at` | no | Date someone last checked the row. | verified, verified on |

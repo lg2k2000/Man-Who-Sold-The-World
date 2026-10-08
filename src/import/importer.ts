@@ -14,6 +14,7 @@ import Papa from 'papaparse';
 import type { TerritoryConfig } from '../config/territories';
 import type { Dataset, Provenance, TableName } from '../data/types';
 import { OP_ID, text } from './fields';
+import { relinkOwners } from '../data/edit';
 import { Resolver, type Created, type Match } from './resolve';
 import { COLUMNS, describeKey, JSON_ONLY, keyOf, PARSERS, RowReader, type Issue, type Raw } from './tables';
 
@@ -434,16 +435,16 @@ export function runImport(
   report.matches = resolver.matches;
 
   if (table === 'contacts') checkReportsTo(next.contacts, accepted as never, report);
-  return { data: next, report };
+  return { data: relinkOwners(next), report };
 }
 
 /** The import column each stored field comes from, where the names differ. */
 const FIELD_COLUMN: Partial<Record<TableName, Record<string, string>>> = {
-  companies: { primary_partner_id: 'primary_partner', hpe_owner_email: 'hpe_owner' },
+  companies: { primary_partner_id: 'primary_partner', hpe_owner_id: 'hpe_owner' },
   contacts: { company_id: 'company' },
-  deals: { company_id: 'company', partner_id: 'partner', hpe_owner_email: 'hpe_owner', owner_name: 'hpe_owner', contact_ids: 'contacts' },
+  deals: { company_id: 'company', partner_id: 'partner', hpe_owner_id: 'hpe_owner', owner_name: 'hpe_owner', contact_ids: 'contacts' },
   people: { roles: 'role' },
-  coverage: { company_id: 'company' },
+  coverage: { person_id: 'person', company_id: 'company' },
   briefs: { company_id: 'company' },
 };
 

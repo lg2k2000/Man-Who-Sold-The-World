@@ -65,7 +65,7 @@ export function SidePanel({ regionNames }: Props) {
         );
     }
   } else if (panel?.kind === 'person') {
-    const p = index.personByEmail.get(panel.id);
+    const p = index.personById.get(panel.id);
     if (p) {
       title = p.name;
       body = <PersonBody person={p} regionNames={regionNames} />;
@@ -110,7 +110,7 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
   const covering = index.coverageByCompany.get(company.id) ?? [];
   const roles = coverageRoles(covering);
   const partner = company.primary_partner_id ? index.companyById.get(company.primary_partner_id) : undefined;
-  const owner = company.hpe_owner_email ? index.personByEmail.get(company.hpe_owner_email) : undefined;
+  const owner = company.hpe_owner_id ? index.personById.get(company.hpe_owner_id) : undefined;
   const regionIndex = useApp((s) => s.regionIndex);
   const territory = company.state ? regionIndex.get(company.state)?.territory : undefined;
   const pipeline = index.openPipeline.get(company.id) ?? 0;
@@ -150,11 +150,11 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
           <dt>HPE owner</dt>
           <dd>
             {owner ? (
-              <button type="button" className="link" onClick={() => openPerson(owner.email)}>
+              <button type="button" className="link" onClick={() => openPerson(owner.id)}>
                 {owner.name}
               </button>
             ) : (
-              (company.hpe_owner_email ?? <span className="muted">None</span>)
+              (company.hpe_owner_id ?? <span className="muted">None</span>)
             )}
           </dd>
           <dt>Primary partner</dt>
@@ -348,15 +348,15 @@ function CoverageTab({ people, partner }: { people: Person[]; partner: Company |
           {[...people]
             .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
             .map((p) => (
-              <li key={p.email}>
-                <button type="button" className="link" onClick={() => openPerson(p.email)}>
+              <li key={p.id}>
+                <button type="button" className="link" onClick={() => openPerson(p.id)}>
                   {p.name}
                 </button>
                 <span className="muted">
                   {p.roles.map((r) => ROLE_LABELS[r]).join(', ')}
                   {p.specialty ? ` (${p.specialty === 'aruba' ? 'Aruba' : 'Juniper'})` : ''}
                 </span>
-                <a href={`mailto:${p.email}`}>{p.email}</a>
+                {p.email && <a href={`mailto:${p.email}`}>{p.email}</a>}
               </li>
             ))}
         </ul>
@@ -448,12 +448,12 @@ function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<
   const config = useApp((s) => s.config);
   const openCompany = useApp((s) => s.openCompany);
   const editPerson = useApp((s) => s.editPerson);
-  const accounts = index.coverageByPerson.get(person.email) ?? [];
-  const owned = data.deals.filter((d) => d.hpe_owner_email === person.email);
+  const accounts = index.coverageByPerson.get(person.id) ?? [];
+  const owned = data.deals.filter((d) => d.hpe_owner_id === person.id);
   return (
     <div className="panel-body">
       <p>
-        <button type="button" className="btn small" onClick={() => editPerson(person.email)}>
+        <button type="button" className="btn small" onClick={() => editPerson(person.id)}>
           Edit in HPE team
         </button>
       </p>
@@ -464,9 +464,7 @@ function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<
           {person.specialty ? ` (${person.specialty === 'aruba' ? 'Aruba' : 'Juniper'})` : ''}
         </dd>
         <dt>Email</dt>
-        <dd>
-          <a href={`mailto:${person.email}`}>{person.email}</a>
-        </dd>
+        <dd>{person.email ? <a href={`mailto:${person.email}`}>{person.email}</a> : <span className="muted">Not known yet</span>}</dd>
         <dt>Territory teams</dt>
         <dd>
           {person.territories.length ? (

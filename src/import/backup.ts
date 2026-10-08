@@ -2,14 +2,17 @@
 // keep a copy. Restoring runs every row through the same checks as an import.
 
 import type { TerritoryConfig } from '../config/territories';
-import { migrateV1, type V1Dataset } from '../data/migrate';
+import { migrateV1, migrateV2, type V1Dataset, type V2Dataset } from '../data/migrate';
 import { emptyDataset, type Dataset, type TableName } from '../data/types';
 import { newReport, runImport, type ImportReport } from './importer';
 import type { Raw } from './tables';
 
 export const BACKUP_FORMAT = 'territory-coverage-backup';
-/** Version 1 held prospects, partners, and stakeholders; version 2 is the CRM model. Both restore. */
-export const BACKUP_VERSION = 2;
+/**
+ * Version 1 held prospects, partners, and stakeholders; version 2 was the CRM
+ * model with people keyed by email; version 3 keys people by id. All three restore.
+ */
+export const BACKUP_VERSION = 3;
 
 /** Tables restore in this order so every reference has something to point at. */
 const RESTORE_ORDER: TableName[] = ['people', 'companies', 'contacts', 'deals', 'coverage', 'briefs'];
@@ -39,17 +42,19 @@ export function restoreBackup(text: string, fileName: string, config: TerritoryC
   if (!o || o.format !== BACKUP_FORMAT || typeof o.data !== 'object' || o.data === null) {
     return { data: null, error: 'This is not a backup made by "Export everything".', reports: [] };
   }
-  if (o.version !== 1 && o.version !== BACKUP_VERSION) {
+  if (o.version !== 1 && o.version !== 2 && o.version !== BACKUP_VERSION) {
     return {
       data: null,
-      error: `This backup is version ${String(o.version)}; this app reads versions 1 and ${BACKUP_VERSION}.`,
+      error: `This backup is version ${String(o.version)}; this app reads versions 1 to ${BACKUP_VERSION}.`,
       reports: [],
     };
   }
   if (Object.values(o.data).some((t) => t !== undefined && !Array.isArray(t))) {
     return { data: null, error: 'The backup is damaged: a table is not a list.', reports: [] };
   }
-  const tables = (o.version === 1 ? migrateV1(o.data as V1Dataset) : o.data) as Partial<Record<TableName, unknown[]>>;
+  const tables = (o.version === 1 ? migrateV1(o.data as V1Dataset) : o.version === 2 ? migrateV2(o.data as V2Dataset) : o.data) as Partial<
+    Record<TableName, unknown[]>
+  >;
 
   let data = emptyDataset();
   const reports: ImportReport[] = [];
@@ -82,12 +87,13 @@ function toRaw(table: TableName, row: unknown): Raw {
     case 'people':
       return { ...r, role: r.roles };
     case 'companies':
-      return { ...r, primary_partner: r.primary_partner_id, hpe_owner: r.hpe_owner_email };
+      return { ...r, primary_partner: r.primary_partner_id, hpe_owner: r.hpe_owner_id };
     case 'contacts':
       return { ...r, company: r.company_id };
     case 'deals':
-      return { ...r, company: r.company_id, partner: r.partner_id, hpe_owner: r.hpe_owner_email || r.owner_name, contacts: r.contact_ids };
+      return { ...r, company: r.company_id, partner: r.partner_id, hpe_owner: r.hpe_owner_id || r.owner_name, contacts: r.contact_ids };
     case 'coverage':
+      return { ...r, person: r.person_id, company: r.company_id };
     case 'briefs':
       return { ...r, company: r.company_id };
   }
