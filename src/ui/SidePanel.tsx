@@ -350,9 +350,15 @@ function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<
   const index = useApp((s) => s.index);
   const config = useApp((s) => s.config);
   const openProspect = useApp((s) => s.openProspect);
+  const editPerson = useApp((s) => s.editPerson);
   const accounts = index.coverageByPerson.get(person.email) ?? [];
   return (
     <div className="panel-body">
+      <p>
+        <button type="button" className="btn small" onClick={() => editPerson(person.email)}>
+          Edit in People
+        </button>
+      </p>
       <dl className="kv">
         <dt>Roles</dt>
         <dd>
@@ -404,9 +410,15 @@ function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<
 function PartnerBody({ partner, regionNames }: { partner: Partner; regionNames: Map<string, string> }) {
   const data = useApp((s) => s.data);
   const openProspect = useApp((s) => s.openProspect);
+  const editPartner = useApp((s) => s.editPartner);
   const primaryFor = data.prospects.filter((p) => p.primary_partner_id === partner.id);
   return (
     <div className="panel-body">
+      <p>
+        <button type="button" className="btn small" onClick={() => editPartner(partner.id)}>
+          Edit in Partners
+        </button>
+      </p>
       <dl className="kv">
         <dt>Has done VME</dt>
         <dd>{partner.has_done_vme}</dd>

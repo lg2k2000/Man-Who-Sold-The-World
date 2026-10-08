@@ -100,6 +100,8 @@ interface AppState {
   frameRequest: number;
   filters: Filters;
   panel: Panel;
+  /** A person or partner to open in its edit form when its view shows. */
+  editRecord: { kind: 'person' | 'partner'; id: string } | null;
 
   data: Dataset;
   index: DataIndex;
@@ -127,6 +129,8 @@ interface AppState {
   openPerson(email: string): void;
   openPartner(id: string): void;
   closePanel(): void;
+  editPerson(email: string | null): void;
+  editPartner(id: string | null): void;
 
   attachStore(store: DataStore, problem?: StoreProblem | null): Promise<void>;
   /** Saves one table and refreshes everything derived from the data. */
@@ -156,6 +160,7 @@ export const useApp = create<AppState>((set, get) => ({
   frameRequest: 0,
   filters: NO_FILTERS,
   panel: null,
+  editRecord: null,
 
   ...withData(emptyDataset()),
   store: null,
@@ -276,6 +281,12 @@ export const useApp = create<AppState>((set, get) => ({
   },
   closePanel() {
     set({ panel: null, highlightCodes: null });
+  },
+  editPerson(email) {
+    set({ view: 'people', editRecord: email === null ? null : { kind: 'person', id: email } });
+  },
+  editPartner(id) {
+    set({ view: 'partners', editRecord: id === null ? null : { kind: 'partner', id } });
   },
 
   async attachStore(store, problem = null) {

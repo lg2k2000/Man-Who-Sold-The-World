@@ -10,6 +10,8 @@ interface Props {
 
 const NAV: { view: View; label: string }[] = [
   { view: 'map', label: 'Map' },
+  { view: 'people', label: 'People' },
+  { view: 'partners', label: 'Partners' },
   { view: 'data', label: 'Data' },
 ];
 
@@ -58,6 +60,8 @@ function SettingsMenu({ config, homeId }: Props) {
   const theme = useApp((s) => s.settings.theme);
   const setTheme = useApp((s) => s.setTheme);
   const setHome = useApp((s) => s.setHomeTerritory);
+  const editorName = useApp((s) => s.settings.editorName);
+  const setEditorName = useApp((s) => s.setEditorName);
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +99,10 @@ function SettingsMenu({ config, homeId }: Props) {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="field">
+            <span>Your name, for "updated by" on edits</span>
+            <input className="text-input" value={editorName} placeholder="Not set" onChange={(e) => setEditorName(e.target.value)} />
           </label>
           <fieldset className="field">
             <legend>Theme</legend>

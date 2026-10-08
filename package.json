@@ -10,7 +10,9 @@
     "typecheck": "tsc",
     "test": "vitest run",
     "boundaries": "node scripts/build-boundaries.mjs",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.mjs\""
   },
   "dependencies": {
     "d3-geo": "3.1.1",
@@ -43,7 +45,8 @@
     "mapshaper": "0.7.66",
     "typescript": "5.9.3",
     "vite": "8.3.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "prettier": "3.6.2"
   },
   "overrides": {
     "fflate": "0.8.3",

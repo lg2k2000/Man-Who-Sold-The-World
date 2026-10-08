@@ -65,6 +65,14 @@ const clickLink = (name) => async (page) => {
   await page.getByRole('button', { name, exact: true }).first().click();
   await page.waitForTimeout(500);
 };
+const header = (name) => async (page) => {
+  await page.getByRole('columnheader', { name }).getByRole('button').click();
+  await page.waitForTimeout(200);
+};
+const row = (text) => async (page) => {
+  await page.getByRole('row', { name: new RegExp(text) }).first().click();
+  await page.waitForTimeout(400);
+};
 const away = async (page) => {
   await page.mouse.move(5, 300);
   await page.waitForTimeout(200);
@@ -143,6 +151,28 @@ const sets = {
       ],
     },
   ],
+  m4: [
+    { name: 'people', query: '?sample=1#/people', steps: [] },
+    { name: 'people-sorted', query: '?sample=1#/people', steps: [header('Accounts'), header('Accounts')] },
+    { name: 'person-form', query: '?sample=1#/people', steps: [row('Sample Person AJ'), away] },
+    {
+      name: 'person-errors',
+      query: '?sample=1#/people',
+      steps: [
+        clickText('Add person'),
+        async (page) => {
+          await page.getByRole('dialog').getByRole('button', { name: 'Add person' }).click();
+          await page.waitForTimeout(300);
+        },
+      ],
+    },
+    { name: 'people-filtered', query: '?sample=1#/people', steps: [async (page) => { await page.getByLabel('Filter people by role').selectOption('networking'); await page.waitForTimeout(200); }] },
+    { name: 'partners', query: '?sample=1#/partners', steps: [] },
+    { name: 'partner-form', query: '?sample=1#/partners', steps: [row('Sample Partner 2(?!\d)'), away] },
+    { name: 'people-empty', query: '#/people', steps: [] },
+    { name: 'partners-empty', query: '#/partners', steps: [] },
+    { name: 'map-to-form', query: '?sample=1', steps: [search('Sample Partner 9'), clickText('Edit in Partners')] },
+  ],
 };
 const shots = sets[milestone] ?? sets.m2;
 
@@ -160,7 +190,7 @@ try {
       page.on('pageerror', (e) => errors.push(`${shot.name}/${scheme}: ${e.message}`));
       page.on('console', (m) => m.type() === 'error' && errors.push(`${shot.name}/${scheme}: ${m.text()}`));
       await page.goto(base + '/' + shot.query);
-      await page.waitForSelector(shot.query.startsWith('#/') ? '.page' : '.region');
+      await page.waitForSelector(shot.query.includes('#/') ? '.page' : '.region');
       await page.waitForTimeout(400);
       for (const step of shot.steps) await step(page);
       const file = join(outDir, `${shot.name}-${scheme}.png`);

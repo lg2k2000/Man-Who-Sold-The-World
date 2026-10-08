@@ -9,6 +9,8 @@ import { SampleBanner } from './ui/SampleBanner';
 import { SidePanel } from './ui/SidePanel';
 import { TerritoryCard } from './ui/TerritoryCard';
 import { DataView } from './ui/DataView';
+import { PeopleView } from './ui/PeopleView';
+import { PartnersView } from './ui/PartnersView';
 import { DraftNotice, EditBar, RegionEditor } from './ui/TerritoryEditor';
 import { EmptyMap } from './ui/EmptyMap';
 import { useApp, type View } from './state/app';
@@ -94,6 +96,8 @@ export function App() {
         </div>
       )}
       {view === 'data' && <DataView />}
+      {view === 'people' && <PeopleView regionNames={regionNames} />}
+      {view === 'partners' && <PartnersView regionNames={regionNames} />}
       {view === 'map' && (
         <>
           {editing ? <EditBar regionNames={regionNames} /> : <FilterBar config={config} regionNames={regionNames} />}
