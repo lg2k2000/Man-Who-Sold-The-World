@@ -14,6 +14,7 @@ Work happens in Claude Code cloud sessions with this repository attached, never 
 ## The map
 
 - The map shows North America the way the reference map does. The US and Canada are drawn with Alaska in its true position, every state and province is colored by its FY27 territory, borders are thin and white, and other countries are light gray. Hawaii gets a small inset, because the reference map leaves it off.
+- The reference map only shows who has which territory; the app's map is more detailed (decided 2026-10-08). Over the territory colors it draws cities and towns, highways, rivers and lakes, metro areas, US county lines, and state and province names, from free data bundled with the app. More detail appears as the viewer zooms in, and a layers menu turns each kind on or off.
 - The app opens focused on the viewer's territory, and in phase 1 that is a setting that defaults to PacNorthwest. The rest of the continent stays visible but dimmed. One button zooms out to all of North America, and a territory picker jumps to any territory.
 - A legend lists every territory with its color, its team, and its count of states and provinces.
 - Territories are data. They change every fiscal year, so no component may hardcode which state belongs to which territory or who is on which team. Membership comes from `config/territories.json`, and team members come from the people import.

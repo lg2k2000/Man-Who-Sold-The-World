@@ -37,6 +37,20 @@
   --conf-reported: #3c5a99;
   --conf-inferred: #8a5a00;
 
+  /* Map detail: water, metro areas, roads, county lines, and labels drawn over the territory colors. */
+  --d-lake: #e3ebf2;
+  --d-lake-edge: rgba(70, 110, 145, 0.45);
+  --d-river: rgba(62, 120, 170, 0.6);
+  --d-urban: rgba(31, 42, 51, 0.17);
+  --d-road: rgba(31, 42, 51, 0.62);
+  --d-road-casing: rgba(255, 255, 255, 0.55);
+  --d-road-minor: rgba(31, 42, 51, 0.3);
+  --d-county: rgba(255, 255, 255, 0.55);
+  --d-label: #1f2a33;
+  --d-region-label: rgba(31, 42, 51, 0.72);
+  --d-halo: rgba(255, 255, 255, 0.82);
+  --d-city-dot: #ffffff;
+
   color-scheme: light;
 }
 
@@ -69,6 +83,18 @@
     --conf-confirmed: #4fd1a8;
     --conf-reported: #9db8f2;
     --conf-inferred: #f0c06a;
+    --d-lake: #1b2731;
+    --d-lake-edge: rgba(120, 165, 200, 0.4);
+    --d-river: rgba(110, 165, 210, 0.6);
+    --d-urban: rgba(0, 0, 0, 0.26);
+    --d-road: rgba(15, 20, 24, 0.7);
+    --d-road-casing: rgba(255, 255, 255, 0.28);
+    --d-road-minor: rgba(15, 20, 24, 0.38);
+    --d-county: rgba(21, 27, 32, 0.45);
+    --d-label: #f2f5f7;
+    --d-region-label: rgba(242, 245, 247, 0.8);
+    --d-halo: rgba(21, 27, 32, 0.85);
+    --d-city-dot: #151b20;
     color-scheme: dark;
   }
 }
@@ -101,6 +127,18 @@
   --conf-confirmed: #4fd1a8;
   --conf-reported: #9db8f2;
   --conf-inferred: #f0c06a;
+  --d-lake: #1b2731;
+  --d-lake-edge: rgba(120, 165, 200, 0.4);
+  --d-river: rgba(110, 165, 210, 0.6);
+  --d-urban: rgba(0, 0, 0, 0.26);
+  --d-road: rgba(15, 20, 24, 0.7);
+  --d-road-casing: rgba(255, 255, 255, 0.28);
+  --d-road-minor: rgba(15, 20, 24, 0.38);
+  --d-county: rgba(21, 27, 32, 0.45);
+  --d-label: #f2f5f7;
+  --d-region-label: rgba(242, 245, 247, 0.8);
+  --d-halo: rgba(21, 27, 32, 0.85);
+  --d-city-dot: #151b20;
   color-scheme: dark;
 }
 
@@ -2247,4 +2285,148 @@ textarea.text-input {
 
 .btn.danger-solid:hover {
   background: #9c2a2a;
+}
+
+/* Map detail (M6) */
+
+.detail,
+.detail-labels {
+  pointer-events: none;
+}
+
+.detail path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.detail .d-urban {
+  fill: var(--d-urban);
+  stroke: none;
+}
+
+.detail .d-lake {
+  fill: var(--d-lake);
+  stroke: var(--d-lake-edge);
+  stroke-width: 0.5;
+}
+
+.detail .d-river {
+  stroke: var(--d-river);
+  stroke-width: 1;
+}
+
+.detail .d-river.minor {
+  stroke-width: 0.6;
+}
+
+.detail .d-county {
+  stroke: var(--d-county);
+  stroke-width: 0.5;
+}
+
+.detail .d-road.minor {
+  stroke: var(--d-road-minor);
+  stroke-width: 0.6;
+}
+
+.detail .d-road-casing {
+  stroke: var(--d-road-casing);
+  stroke-width: 2.6;
+}
+
+.detail .d-road.major {
+  stroke: var(--d-road);
+  stroke-width: 1.1;
+}
+
+.region-label,
+.city {
+  transform: scale(calc(1 / var(--k, 1)));
+}
+
+.region-label {
+  fill: var(--d-region-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--d-halo);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.city circle {
+  fill: var(--d-city-dot);
+  stroke: var(--d-label);
+  stroke-width: 1.2;
+}
+
+.city.capital circle:first-child {
+  fill: var(--d-label);
+  stroke: var(--d-city-dot);
+}
+
+.city .cap-ring {
+  fill: none;
+  stroke: var(--d-label);
+  stroke-width: 1;
+}
+
+.city text {
+  fill: var(--d-label);
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--d-halo);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.city.capital text {
+  font-weight: 600;
+}
+
+.layers-menu {
+  display: flex;
+  flex-direction: column;
+}
+
+.layers-menu .btn.icon {
+  width: 34px;
+  height: 34px;
+  box-shadow: var(--shadow);
+}
+
+.layers-popover {
+  top: auto;
+  right: 42px;
+  bottom: 0;
+  width: 280px;
+}
+
+.layers-popover .field {
+  gap: 10px;
+}
+
+.layers-popover .check {
+  align-items: flex-start;
+}
+
+.layers-popover .check input {
+  margin: 2px 0 0;
+}
+
+.layers-popover .check small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.layers-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
 }

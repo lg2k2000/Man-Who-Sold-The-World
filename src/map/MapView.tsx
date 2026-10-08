@@ -5,10 +5,13 @@ import 'd3-transition';
 import { zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
 import type { RegionAssignment, TerritoryConfig } from '../config/territories';
 import { HAWAII, mainProjection, type Boundaries } from './geo';
+import { DetailLabels, DetailUnder } from './DetailLayers';
+import type { Detail, LayerSettings } from './detail';
 import { fitTransform, mainBounds, unionBounds, type Bounds } from './bounds';
 import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
+import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
 import { filterProspects, hasOverlap, territoryCodes, type DataIndex } from '../data/derive';
 import type { Prospect } from '../data/types';
 
@@ -21,6 +24,10 @@ export interface MapInsets {
 
 interface Props {
   boundaries: Boundaries;
+  /** Detail layers, once loaded. The map draws without them. */
+  detail: Detail | null;
+  detailStatus: DetailStatus;
+  layers: LayerSettings;
   config: TerritoryConfig;
   index: Map<string, RegionAssignment>;
   insets: MapInsets;
@@ -30,7 +37,7 @@ const MAX_ZOOM = 60;
 /** Past this zoom the map shows pins everywhere instead of per-state counts. */
 const PIN_ZOOM = 2.5;
 
-export function MapView({ boundaries, config, index, insets }: Props) {
+export function MapView({ boundaries, detail, detailStatus, layers, config, index, insets }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const layerRef = useRef<SVGGElement>(null);
@@ -39,6 +46,9 @@ export function MapView({ boundaries, config, index, insets }: Props) {
   const framedOnce = useRef(false);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [zoomedIn, setZoomedIn] = useState(false);
+  // The zoom transform once a gesture or transition settles; labels are placed for it.
+  const [settled, setSettled] = useState({ k: 1, x: 0, y: 0 });
+  const zoomK = settled.k;
 
   const focusId = useApp((s) => s.focusTerritoryId);
   const selectedState = useApp((s) => s.selectedState);
@@ -116,6 +126,10 @@ export function MapView({ boundaries, config, index, insets }: Props) {
         }
         patternRef.current?.setAttribute('patternTransform', `scale(${1 / t.k}) rotate(45)`);
         setZoomedIn(t.k >= PIN_ZOOM);
+      })
+      .on('end', (event) => {
+        const t = event.transform;
+        setSettled({ k: Math.round(t.k * 100) / 100, x: Math.round(t.x), y: Math.round(t.y) });
       });
     const svg = select(svgEl);
     svg.call(z).on('dblclick.zoom', null);
@@ -165,6 +179,20 @@ export function MapView({ boundaries, config, index, insets }: Props) {
   }, [frameRequest, geo, size, config]);
 
   const focusCodes = useMemo(() => (focusId ? territoryCodes(config, focusId) : null), [config, focusId]);
+
+  const regionLabelInputs = useMemo(
+    () =>
+      geo?.regions.map((r) => ({ code: r.code, name: r.name, x: r.center[0], y: r.center[1], width: r.bounds[1][0] - r.bounds[0][0] })) ??
+      [],
+    [geo],
+  );
+  // The visible area plus half a screen on each side, in zoom-scaled layer coordinates, so labels
+  // are placed only where the viewer can see them or is about to pan.
+  const labelView = useMemo(() => {
+    const w = size?.w ?? 0;
+    const h = size?.h ?? 0;
+    return { x0: -settled.x - w / 2, y0: -settled.y - h / 2, x1: -settled.x + w * 1.5, y1: -settled.y + h * 1.5 };
+  }, [settled, size]);
   const highlight = useMemo(() => new Set(highlightCodes ?? []), [highlightCodes]);
 
   const filtered = useMemo(() => filterProspects(data, dataIndex, config, filters), [data, dataIndex, config, filters]);
@@ -196,6 +224,13 @@ export function MapView({ boundaries, config, index, insets }: Props) {
       return r ? [{ code, name: r.name, count, x: r.center[0], y: r.center[1] }] : [];
     });
   }, [geo, scope, filtered]);
+
+  // Pins and count badges in zoom-scaled coordinates, so labels can keep clear of them.
+  const labelObstacles = useMemo(() => {
+    const k = zoomK;
+    const around = (x: number, y: number, r: number) => ({ x0: x * k - r, y0: y * k - r, x1: x * k + r, y1: y * k + r });
+    return [...pins.map((p) => around(p.x, p.y, 7)), ...counts.map((c) => around(c.x, c.y, 13))];
+  }, [pins, counts, zoomK]);
 
   // Keyboard order: territories as the legend lists them, regions by name, unassigned last.
   const regionOrder = useMemo(() => {
@@ -353,6 +388,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
                 showCardFor(el, code);
               }}
             />
+            {detail && <DetailUnder detail={detail} projection={geo.projection} layers={layers} k={zoomK} />}
             <path className="coast" d={geo.coast} aria-hidden="true" />
             <g className="hatches" aria-hidden="true">
               {geo.regions
@@ -369,6 +405,17 @@ export function MapView({ boundaries, config, index, insets }: Props) {
                   <path key={r.code} d={r.d} className={r.code === selectedState ? 'outline selected' : 'outline'} />
                 ))}
             </g>
+            {detail && (
+              <DetailLabels
+                detail={detail}
+                projection={geo.projection}
+                layers={layers}
+                k={zoomK}
+                view={labelView}
+                obstacles={labelObstacles}
+                regions={regionLabelInputs}
+              />
+            )}
             <g className="counts" aria-hidden="true">
               {counts.map((c) => (
                 <g key={c.code} transform={`translate(${c.x},${c.y})`}>
@@ -414,6 +461,7 @@ export function MapView({ boundaries, config, index, insets }: Props) {
         </svg>
       )}
       <div className="zoom-buttons">
+        <LayersMenu status={detailStatus} />
         <button type="button" className="btn icon" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1.6)}>
           +
         </button>

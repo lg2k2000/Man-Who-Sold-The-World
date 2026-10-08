@@ -22,6 +22,8 @@ Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtur
 - The filter bar narrows pins by territory, tier fit, primary partner, open deal, and accounts covered by three or more account coverage roles (EAM excluded), which also get a green ring.
 - Press `/` to search people, partners, and prospects by name. Picking one frames it on the map and opens its panel.
 - At the full continent view each state shows a prospect count; pins appear once a territory or state is chosen or the map is zoomed in.
+- The map draws cities and towns, highways, rivers and lakes, metro areas, US county lines, and state and province names over the territory colors. More appears as you zoom in: big metros at the continent view, state capitals and regional cities at territory zoom, and towns of 5,000 or more people (1,000 or more in Alaska and the northern territories) at state zoom and closer. County lines show from state zoom, smaller highways and rivers a little before. Labels never overlap; a name moves to the side of its dot clear of the pins when it can.
+- The layers button above the zoom buttons turns each kind of detail on or off. The choice is saved in this browser.
 
 ## People and partners
 
@@ -43,6 +45,7 @@ Click **Edit** in the legend. Click any state or province to move it to another 
 ## When something fails
 
 - If the map boundaries do not load, the map says why and offers "Try again".
+- If the map detail (cities, roads, water, counties) does not load, the territory map, pins, and data still work, and the layers menu says the detail is missing.
 - If the browser blocks storage (a private window, or site data turned off), the app keeps working in this tab's memory and says so on every page; "Export everything" keeps a copy.
 - A storage error while saving (for example, the disk is full) is reported in plain words and nothing is changed.
 - If `config/territories.json` fails its checks, the app lists the problems instead of drawing a wrong map.
@@ -173,7 +176,7 @@ A JSON list of objects, or an object with a `stakeholders` list. Each object has
 npm run typecheck    # TypeScript, strict
 npm test             # unit tests (Vitest)
 npm run build        # production build into dist/
-npm run screenshots -- m4   # headless Chromium screenshots of the build into docs/screenshots/m4/ (sets: m1 to m5)
+npm run screenshots -- m6   # headless Chromium screenshots of the build into docs/screenshots/m6/ (sets: m1 to m6)
 npm run a11y         # axe-core scan of every view in both themes, plus a keyboard walk (needs a build)
 npm run format       # Prettier
 ```
@@ -189,7 +192,23 @@ npm run format       # Prettier
 - `ne_10m_admin_1_states_provinces_lakes` for US states, DC, and Canadian provinces and territories.
 - `ne_10m_admin_0_countries_lakes` for the countries around them, drawn gray.
 
-Source: [Natural Earth](https://www.naturalearthdata.com/), downloaded from the project's repository at `github.com/nvkelso/natural-earth-vector`. License: public domain ("All versions of Natural Earth raster and vector map data found on this website are in the public domain"). The script simplifies the shapes with [mapshaper](https://github.com/mbloch/mapshaper) and fails if any code in `config/territories.json` has no shape. The downloads are cached in `.cache/`, which Git ignores.
+Source: [Natural Earth](https://www.naturalearthdata.com/), downloaded from the project's repository at `github.com/nvkelso/natural-earth-vector`. License: public domain ("All versions of Natural Earth raster and vector map data found on this website are in the public domain"). The script simplifies the shapes to 30% of their points with [mapshaper](https://github.com/mbloch/mapshaper) and fails if any code in `config/territories.json` has no shape. The downloads are cached in `.cache/`, which Git ignores.
+
+## Map detail
+
+`public/geo/detail.topo.json` (about 3 MB, 0.7 MB compressed) is built by `npm run detail` (`scripts/build-detail.mjs`). The app loads it after the territory map has drawn.
+
+| Layer | Source | License |
+| --- | --- | --- |
+| Cities | Natural Earth `ne_10m_populated_places_simple`, US and Canada, with its scale rank and capital status | Public domain |
+| Towns | [GeoNames](https://www.geonames.org/) places of 5,000 or more people (1,000 or more in Alaska, Yukon, Northwest Territories, and Nunavut), from the [`all-the-cities`](https://www.npmjs.com/package/all-the-cities) package. Towns Natural Earth already lists are dropped. | Data CC BY 4.0 (attribution shown in the layers menu); package MIT |
+| Highways | Natural Earth `ne_10m_roads`, US and Canada, ferries left out, split into major (interstates, freeways, beltways) and other highways | Public domain |
+| Rivers | Natural Earth `ne_10m_rivers_lake_centerlines` | Public domain |
+| Lakes | Natural Earth `ne_10m_lakes` | Public domain |
+| Metro areas | Natural Earth `ne_10m_urban_areas` | Public domain |
+| US counties | [`us-atlas`](https://github.com/topojson/us-atlas) `counties-10m.json`, built from US Census Bureau cartographic boundary files | Package ISC; Census data public domain |
+
+Both packages are dev dependencies used only by the build script; neither ships in the app.
 
 ## Project layout
 
