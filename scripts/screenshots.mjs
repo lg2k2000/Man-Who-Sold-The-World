@@ -22,24 +22,30 @@ const regionCenter = async (page, code) => {
   const box = await page.locator(`path.region[data-code="${code}"]`).boundingBox();
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
-const hoverRegion = (code, dx = 0, dy = 0) => async (page) => {
-  const c = await regionCenter(page, code);
-  await page.mouse.move(c.x + dx, c.y + dy);
-  await page.waitForTimeout(300);
-};
-const clickRegion = (code, dx = 0, dy = 0) => async (page) => {
-  const c = await regionCenter(page, code);
-  await page.mouse.click(c.x + dx, c.y + dy);
-  await page.waitForTimeout(900);
-};
-const search = (text, pick = true) => async (page) => {
-  await page.getByRole('combobox', { name: /search/i }).fill(text);
-  await page.waitForTimeout(250);
-  if (pick) {
-    await page.keyboard.press('Enter');
+const hoverRegion =
+  (code, dx = 0, dy = 0) =>
+  async (page) => {
+    const c = await regionCenter(page, code);
+    await page.mouse.move(c.x + dx, c.y + dy);
+    await page.waitForTimeout(300);
+  };
+const clickRegion =
+  (code, dx = 0, dy = 0) =>
+  async (page) => {
+    const c = await regionCenter(page, code);
+    await page.mouse.click(c.x + dx, c.y + dy);
     await page.waitForTimeout(900);
-  }
-};
+  };
+const search =
+  (text, pick = true) =>
+  async (page) => {
+    await page.getByRole('combobox', { name: /search/i }).fill(text);
+    await page.waitForTimeout(250);
+    if (pick) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(900);
+    }
+  };
 const tab = (name) => async (page) => {
   await page.getByRole('tab', { name: new RegExp(`^${name}`) }).click();
   await page.waitForTimeout(250);
@@ -53,10 +59,12 @@ const check = (label) => async (page) => {
   await page.waitForTimeout(500);
 };
 const ex = (name) => join(root, 'fixtures', 'import-examples', name);
-const pickFiles = (...names) => async (page) => {
-  await page.setInputFiles('#import-file', names.map(ex));
-  await page.waitForTimeout(300);
-};
+const pickFiles =
+  (...names) =>
+  async (page) => {
+    await page.setInputFiles('#import-file', names.map(ex));
+    await page.waitForTimeout(300);
+  };
 const clickText = (name) => async (page) => {
   await page.getByRole('button', { name }).first().click();
   await page.waitForTimeout(700);
@@ -64,6 +72,17 @@ const clickText = (name) => async (page) => {
 const clickLink = (name) => async (page) => {
   await page.getByRole('button', { name, exact: true }).first().click();
   await page.waitForTimeout(500);
+};
+const header = (name) => async (page) => {
+  await page.getByRole('columnheader', { name }).getByRole('button').click();
+  await page.waitForTimeout(200);
+};
+const row = (text) => async (page) => {
+  await page
+    .getByRole('row', { name: new RegExp(text) })
+    .first()
+    .click();
+  await page.waitForTimeout(400);
 };
 const away = async (page) => {
   await page.mouse.move(5, 300);
@@ -143,6 +162,37 @@ const sets = {
       ],
     },
   ],
+  m4: [
+    { name: 'people', query: '?sample=1#/people', steps: [] },
+    { name: 'people-sorted', query: '?sample=1#/people', steps: [header('Accounts'), header('Accounts')] },
+    { name: 'person-form', query: '?sample=1#/people', steps: [row('Sample Person AJ'), away] },
+    {
+      name: 'person-errors',
+      query: '?sample=1#/people',
+      steps: [
+        clickText('Add person'),
+        async (page) => {
+          await page.getByRole('dialog').getByRole('button', { name: 'Add person' }).click();
+          await page.waitForTimeout(300);
+        },
+      ],
+    },
+    {
+      name: 'people-filtered',
+      query: '?sample=1#/people',
+      steps: [
+        async (page) => {
+          await page.getByLabel('Filter people by role').selectOption('networking');
+          await page.waitForTimeout(200);
+        },
+      ],
+    },
+    { name: 'partners', query: '?sample=1#/partners', steps: [] },
+    { name: 'partner-form', query: '?sample=1#/partners', steps: [row('Sample Partner 2(?!\d)'), away] },
+    { name: 'people-empty', query: '#/people', steps: [] },
+    { name: 'partners-empty', query: '#/partners', steps: [] },
+    { name: 'map-to-form', query: '?sample=1', steps: [search('Sample Partner 9'), clickText('Edit in Partners')] },
+  ],
 };
 const shots = sets[milestone] ?? sets.m2;
 
@@ -160,7 +210,7 @@ try {
       page.on('pageerror', (e) => errors.push(`${shot.name}/${scheme}: ${e.message}`));
       page.on('console', (m) => m.type() === 'error' && errors.push(`${shot.name}/${scheme}: ${m.text()}`));
       await page.goto(base + '/' + shot.query);
-      await page.waitForSelector(shot.query.startsWith('#/') ? '.page' : '.region');
+      await page.waitForSelector(shot.query.includes('#/') ? '.page' : '.region');
       await page.waitForTimeout(400);
       for (const step of shot.steps) await step(page);
       const file = join(outDir, `${shot.name}-${scheme}.png`);

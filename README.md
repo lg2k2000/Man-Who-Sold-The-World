@@ -23,6 +23,10 @@ Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtur
 - Press `/` to search people, partners, and prospects by name. Picking one frames it on the map and opens its panel.
 - At the full continent view each state shows a prospect count; pins appear once a territory or state is chosen or the map is zoomed in.
 
+## People and partners
+
+**People** and **Partners** in the header list every record in a table. Click a column header to sort by it (again to reverse), filter by name, and click a row to open its edit form beside the table. The forms check fields with the same rules as an import. Changing a person's email or a partner's id updates every coverage link, owner, and deal that points at it; deleting one says what else it clears first. Set your name in Settings so edits record who made them in `updated_by`.
+
 ## Editing territories
 
 Click **Edit** in the legend. Click any state or province to move it to another territory, unassign it, or mark it confirmed. The bar at the top lists every territory whose member count differs from its legend count (you can change the legend count there) and every change in the draft. The draft stays in this browser until you click **Export territories.json**; commit the exported file over `config/territories.json`. If the committed file changes while you have a draft, the map asks whether to keep the draft or use the new file.
@@ -152,7 +156,8 @@ A JSON list of objects, or an object with a `stakeholders` list. Each object has
 npm run typecheck    # TypeScript, strict
 npm test             # unit tests (Vitest)
 npm run build        # production build into dist/
-npm run screenshots -- m1   # headless Chromium screenshots of the build into docs/screenshots/m1/
+npm run screenshots -- m4   # headless Chromium screenshots of the build into docs/screenshots/m4/ (sets: m1 to m5)
+npm run format       # Prettier
 ```
 
 ## Territories

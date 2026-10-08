@@ -44,9 +44,7 @@ describe('config/territories.json', () => {
 
   it('gives PacNorthwest the eight members the owner listed', () => {
     const pnw = config.territories.find((t) => t.id === 'pacnorthwest')!;
-    expect(pnw.members.map((m) => m.code).sort()).toEqual(
-      ['CA-BC', 'CA-YT', 'US-AK', 'US-ID', 'US-MT', 'US-OR', 'US-WA', 'US-WY'].sort(),
-    );
+    expect(pnw.members.map((m) => m.code).sort()).toEqual(['CA-BC', 'CA-YT', 'US-AK', 'US-ID', 'US-MT', 'US-OR', 'US-WA', 'US-WY'].sort());
   });
 
   it('defaults the focus to PacNorthwest', () => {

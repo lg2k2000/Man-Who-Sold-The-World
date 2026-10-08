@@ -26,9 +26,7 @@ export function setConfirmed(cfg: TerritoryConfig, code: string, confirmed: bool
   return {
     ...cfg,
     territories: cfg.territories.map((t) =>
-      t.members.some((m) => m.code === code)
-        ? { ...t, members: t.members.map((m) => (m.code === code ? { ...m, confirmed } : m)) }
-        : t,
+      t.members.some((m) => m.code === code) ? { ...t, members: t.members.map((m) => (m.code === code ? { ...m, confirmed } : m)) } : t,
     ),
   };
 }

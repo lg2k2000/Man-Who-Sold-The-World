@@ -7,15 +7,19 @@ import { useApp } from '../state/app';
 import { downloadText } from './download';
 
 /** The region whose editor is open, and where on the map it was clicked. */
-export const useEditTarget = create<{ code: string | null; x: number; y: number; open(code: string, x: number, y: number): void; close(): void }>(
-  (set) => ({
-    code: null,
-    x: 0,
-    y: 0,
-    open: (code, x, y) => set({ code, x, y }),
-    close: () => set({ code: null }),
-  }),
-);
+export const useEditTarget = create<{
+  code: string | null;
+  x: number;
+  y: number;
+  open(code: string, x: number, y: number): void;
+  close(): void;
+}>((set) => ({
+  code: null,
+  x: 0,
+  y: 0,
+  open: (code, x, y) => set({ code, x, y }),
+  close: () => set({ code: null }),
+}));
 
 function exportConfig() {
   const cfg = useApp.getState().config;
@@ -37,7 +41,9 @@ export function EditBar({ regionNames }: { regionNames: Map<string, string> }) {
     <div className="editbar" role="region" aria-label="Territory editor">
       <div className="editbar-main">
         <strong>Editing territories</strong>
-        <span className="muted">Click a state or province to move it or confirm it. Changes stay a draft in this browser until you export.</span>
+        <span className="muted">
+          Click a state or province to move it or confirm it. Changes stay a draft in this browser until you export.
+        </span>
         <span className="editbar-spacer" />
         <button type="button" className="btn solid" onClick={exportConfig}>
           Export territories.json
@@ -47,7 +53,9 @@ export function EditBar({ regionNames }: { regionNames: Map<string, string> }) {
           className="btn"
           disabled={changes.length === 0}
           onClick={() => {
-            if (window.confirm(`Discard ${changes.length} change${changes.length === 1 ? '' : 's'} and go back to the committed territories?`)) {
+            if (
+              window.confirm(`Discard ${changes.length} change${changes.length === 1 ? '' : 's'} and go back to the committed territories?`)
+            ) {
               close();
               discardDraft();
             }
@@ -138,11 +146,7 @@ export function RegionEditor({ regionNames, stage }: { regionNames: Map<string, 
       </div>
       <label className="field">
         <span>Territory</span>
-        <select
-          autoFocus
-          value={a?.territory.id ?? ''}
-          onChange={(e) => updateConfig(moveRegion(config, code, e.target.value || null))}
-        >
+        <select autoFocus value={a?.territory.id ?? ''} onChange={(e) => updateConfig(moveRegion(config, code, e.target.value || null))}>
           <option value="">Unassigned</option>
           {config.territories.map((t) => (
             <option key={t.id} value={t.id}>
@@ -152,7 +156,12 @@ export function RegionEditor({ regionNames, stage }: { regionNames: Map<string, 
         </select>
       </label>
       <label className="check">
-        <input type="checkbox" disabled={!a} checked={a?.confirmed ?? false} onChange={(e) => updateConfig(setConfirmed(config, code, e.target.checked))} />
+        <input
+          type="checkbox"
+          disabled={!a}
+          checked={a?.confirmed ?? false}
+          onChange={(e) => updateConfig(setConfirmed(config, code, e.target.checked))}
+        />
         Confirmed
       </label>
       <p className="muted small">Committed file: {committed ? committed.name : 'unassigned'}.</p>

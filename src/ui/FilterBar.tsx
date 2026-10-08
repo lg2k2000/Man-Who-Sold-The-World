@@ -24,7 +24,10 @@ export function FilterBar({ config, regionNames }: Props) {
     return selectedState ? list.filter((p) => p.state === selectedState) : list;
   }, [data, index, config, filters, selectedState]);
 
-  const partners = useMemo(() => [...data.partners].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })), [data.partners]);
+  const partners = useMemo(
+    () => [...data.partners].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
+    [data.partners],
+  );
   const active = activeFilterCount(filters);
 
   return (
@@ -42,7 +45,11 @@ export function FilterBar({ config, regionNames }: Props) {
       </label>
       <label className="fb-field">
         <span>Tier fit</span>
-        <select aria-label="Tier fit" value={filters.tierFit ?? ''} onChange={(e) => setFilters({ tierFit: (e.target.value || null) as TierFit | null })}>
+        <select
+          aria-label="Tier fit"
+          value={filters.tierFit ?? ''}
+          onChange={(e) => setFilters({ tierFit: (e.target.value || null) as TierFit | null })}
+        >
           <option value="">Any tier</option>
           {TIER_FITS.map((t) => (
             <option key={t} value={t}>
@@ -53,7 +60,12 @@ export function FilterBar({ config, regionNames }: Props) {
       </label>
       <label className="fb-field">
         <span>Partner</span>
-        <select aria-label="Partner" value={filters.partnerId ?? ''} onChange={(e) => setFilters({ partnerId: e.target.value || null })} disabled={!partners.length}>
+        <select
+          aria-label="Partner"
+          value={filters.partnerId ?? ''}
+          onChange={(e) => setFilters({ partnerId: e.target.value || null })}
+          disabled={!partners.length}
+        >
           <option value="">{partners.length ? 'Any partner' : 'No partners imported'}</option>
           {partners.map((p) => (
             <option key={p.id} value={p.id}>
@@ -64,13 +76,20 @@ export function FilterBar({ config, regionNames }: Props) {
       </label>
       <label className="fb-field">
         <span>Open deal</span>
-        <select aria-label="Open deal" value={filters.openDeal} onChange={(e) => setFilters({ openDeal: e.target.value as 'any' | 'yes' | 'no' })}>
+        <select
+          aria-label="Open deal"
+          value={filters.openDeal}
+          onChange={(e) => setFilters({ openDeal: e.target.value as 'any' | 'yes' | 'no' })}
+        >
           <option value="any">Any</option>
           <option value="yes">Has an open deal</option>
           <option value="no">No open deal</option>
         </select>
       </label>
-      <label className={`fb-toggle${filters.overlapOnly ? ' on' : ''}`} title="Accounts covered by people in three or more account coverage roles, not counting the EAM">
+      <label
+        className={`fb-toggle${filters.overlapOnly ? ' on' : ''}`}
+        title="Accounts covered by people in three or more account coverage roles, not counting the EAM"
+      >
         <input type="checkbox" checked={filters.overlapOnly} onChange={(e) => setFilters({ overlapOnly: e.target.checked })} />
         <span className="overlap-key" aria-hidden="true" />
         3+ coverage roles

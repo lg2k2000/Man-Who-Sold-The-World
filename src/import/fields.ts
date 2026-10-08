@@ -117,8 +117,8 @@ for (const r of ROLES) {
 }
 Object.assign(ROLE_ALIASES, {
   'executive account manager': 'eam',
-  'morpheus': 'morpheus',
-  'opsramp': 'opsramp',
+  morpheus: 'morpheus',
+  opsramp: 'opsramp',
   'aruba specialist': 'networking',
   'juniper specialist': 'networking',
   'sled specialist': 'sled',

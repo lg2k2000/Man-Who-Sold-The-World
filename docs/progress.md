@@ -13,9 +13,11 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 
 - 2026-10-08: M3 (data) is built on branch `m3-data`: IndexedDB storage behind the `DataStore` interface, CSV and JSON imports with a per-row rejected report, warnings and ignored columns, sample data load and removal, backup export and restore, empty states, the territory editor with count warnings, a draft saved in the browser, and export of `territories.json`. Example import files in `fixtures/import-examples/`. 103 unit tests. Screenshots in `docs/screenshots/m3/`.
 
+- 2026-10-08: M4 (people and partners) is built on branch `m4-people-partners`: People and Partners views with sortable, filterable tables and edit forms beside them, key changes that carry over to every reference, deletes that say what they clear, "Edit in People" and "Edit in Partners" from the map panels, and a Settings field for the editor's name. 116 unit tests. Screenshots in `docs/screenshots/m4/`.
+
 ## Next
 
-- M4 (people and partners) on branch `m4-people-partners`, stacked on `m3-data`.
+- M5 (hardening) on branch `m5-hardening`, stacked on `m4-people-partners`.
 
 ## Open questions
 
@@ -52,3 +54,10 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 - 2026-10-08: If the browser blocks IndexedDB, the app runs on in-memory storage and says so on every page, pointing at "Export everything" to keep a copy.
 - 2026-10-08: The territory editor works on the map. Edits form a draft saved in `localStorage` with a fingerprint of the committed config. The export writes the file exactly as the committed one is formatted (a test checks it byte for byte). A moved region arrives unconfirmed. Pins and counts hide while editing so the territory fills stay readable.
 - 2026-10-08: The Data view lives at `#/data`, so reload and the back button keep it.
+- 2026-10-08: Edit forms build the same raw row an import would and run it through the import parsers, so a form can never save what an import would reject, and the messages match.
+- 2026-10-08: Changing a person's email or a partner's id is allowed and carries over to coverage, prospect owners, primary partners, and deals, because an email changes when someone's address does and a stale key would orphan their links. Deleting a person or partner clears those references and the confirm dialog says how many.
+- 2026-10-08: Editing a sample row keeps `is_sample`, so the banner stays honest.
+- 2026-10-08: `updated_by` on an edit is the name in Settings, or "edited in app" when none is set. `source` defaults to "edited in app" when blank.
+- 2026-10-08: Sorting puts empty values last in both directions and compares text naturally ("Co 2" before "Co 10").
+- 2026-10-08: The edit form sits beside the table rather than over it, so the row being edited stays visible.
+- 2026-10-08: Prettier (single quotes, 140 columns) formats the code; M4 applies it to every file in one separate commit so later diffs stay clean.

@@ -22,10 +22,7 @@ export function TerritoryCard({ config, index, regionNames, stage }: Props) {
   const data = useApp((s) => s.data);
   const territory = code ? index.get(code)?.territory : undefined;
 
-  const summary = useMemo(
-    () => (territory ? territorySummary(data, config, territory.id) : null),
-    [data, config, territory],
-  );
+  const summary = useMemo(() => (territory ? territorySummary(data, config, territory.id) : null), [data, config, territory]);
 
   if (!code) return null;
   const left = x + 18 + CARD_W > stage.w ? Math.max(8, x - 18 - CARD_W) : x + 18;
@@ -70,8 +67,16 @@ export function TerritoryCard({ config, index, regionNames, stage }: Props) {
               <p className="muted small">No team imported.</p>
             ) : (
               <ul className="plain">
-                {summary.morpheus.length > 0 && <li>{names(summary.morpheus)} <span className="muted">Morpheus</span></li>}
-                {summary.opsramp.length > 0 && <li>{names(summary.opsramp)} <span className="muted">OpsRamp</span></li>}
+                {summary.morpheus.length > 0 && (
+                  <li>
+                    {names(summary.morpheus)} <span className="muted">Morpheus</span>
+                  </li>
+                )}
+                {summary.opsramp.length > 0 && (
+                  <li>
+                    {names(summary.opsramp)} <span className="muted">OpsRamp</span>
+                  </li>
+                )}
               </ul>
             )}
           </section>

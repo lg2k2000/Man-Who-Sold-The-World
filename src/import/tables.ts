@@ -39,9 +39,18 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
   people: [
     { name: 'name', required: true, description: 'Full name.' },
     { name: 'email', required: true, description: 'Work email; the key for a person. Re-importing the same email updates the person.' },
-    { name: 'role', required: true, description: 'One or more of morpheus, opsramp, eam, storage, compute, networking, greenlake, zerto, sled, other, separated by semicolons. Labels such as "Morpheus specialist" also work.' },
+    {
+      name: 'role',
+      required: true,
+      description:
+        'One or more of morpheus, opsramp, eam, storage, compute, networking, greenlake, zerto, sled, other, separated by semicolons. Labels such as "Morpheus specialist" also work.',
+    },
     { name: 'specialty', required: false, description: 'aruba or juniper, for networking specialists.' },
-    { name: 'territories', required: false, description: 'Territory teams the person sits on, by id (pacnorthwest) or name (PacNorthwest), separated by semicolons.' },
+    {
+      name: 'territories',
+      required: false,
+      description: 'Territory teams the person sits on, by id (pacnorthwest) or name (PacNorthwest), separated by semicolons.',
+    },
     { name: 'states', required: false, description: 'States and provinces the person covers, such as WA; OR; BC or US-WA; US-OR; CA-BC.' },
     { name: 'notes', required: false, description: 'Free text.' },
     ...PROVENANCE_COLUMNS,
@@ -66,7 +75,11 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     { name: 'name', required: true, description: 'Company name.' },
     { name: 'hq_city', required: false, description: 'Headquarters city.' },
     { name: 'state', required: true, description: 'Headquarters state or province, such as WA or CA-BC.' },
-    { name: 'lat', required: false, description: 'Headquarters latitude. Leave lat and lng empty to pin at the state center as "location unverified".' },
+    {
+      name: 'lat',
+      required: false,
+      description: 'Headquarters latitude. Leave lat and lng empty to pin at the state center as "location unverified".',
+    },
     { name: 'lng', required: false, description: 'Headquarters longitude, negative in North America.' },
     { name: 'industry', required: false, description: 'Free text.' },
     { name: 'description', required: false, description: 'One line about the company.' },
@@ -78,7 +91,11 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     ...PROVENANCE_COLUMNS,
   ],
   deals: [
-    { name: 'op_id', required: true, description: 'OPE- followed by ten digits. The only key for deals: a row with an existing op_id updates that deal.' },
+    {
+      name: 'op_id',
+      required: true,
+      description: 'OPE- followed by ten digits. The only key for deals: a row with an existing op_id updates that deal.',
+    },
     { name: 'prospect_id', required: true, description: 'Id of a prospect already imported.' },
     { name: 'stage', required: true, description: 'Sales stage. A stage starting with "Closed" counts as closed; anything else is open.' },
     { name: 'close_date', required: false, description: 'YYYY-MM-DD.' },
@@ -88,8 +105,16 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     ...PROVENANCE_COLUMNS,
   ],
   briefs: [
-    { name: 'prospect_id', required: true, description: 'Id of a prospect already imported. One brief per prospect; a new brief replaces the old one.' },
-    { name: 'sections', required: true, description: `Object with any of ${BRIEF_SECTIONS.join(', ')}. Each is a list of items with text, source_url, source_date (YYYY-MM-DD), and confidence (confirmed, reported, inferred).` },
+    {
+      name: 'prospect_id',
+      required: true,
+      description: 'Id of a prospect already imported. One brief per prospect; a new brief replaces the old one.',
+    },
+    {
+      name: 'sections',
+      required: true,
+      description: `Object with any of ${BRIEF_SECTIONS.join(', ')}. Each is a list of items with text, source_url, source_date (YYYY-MM-DD), and confidence (confirmed, reported, inferred).`,
+    },
     ...PROVENANCE_COLUMNS,
   ],
   stakeholders: [
