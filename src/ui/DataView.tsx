@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 import { TABLES, type Dataset, type TableName } from '../data/types';
-import { requestPersistence } from '../data/idb';
+import { describeStorageError, requestPersistence } from '../data/idb';
 import { guessTable, importTable, type ImportReport } from '../import/importer';
 import { backupFileName, makeBackup, restoreBackup } from '../import/backup';
 import { COLUMNS, FILE_FORMAT, TABLE_LABELS } from '../import/tables';
 import { useApp, withoutSample } from '../state/app';
-import { downloadText } from './download';
+import { askConfirm, showExport } from './dialogs';
 
 const EMPTY_HINT: Record<TableName, string> = {
   people: 'HPE people: territory teams and account coverage.',
@@ -41,7 +41,7 @@ export function DataView() {
     try {
       await fn();
     } catch (e) {
-      setMessage(`Saving failed: ${e instanceof Error ? e.message : String(e)}. Nothing was changed.`);
+      setMessage(`Saving failed: ${describeStorageError(e)} Nothing was changed.`);
     } finally {
       setBusy(false);
     }
@@ -84,11 +84,23 @@ export function DataView() {
 
   const clearTable = (t: TableName) =>
     run(async () => {
-      if (!window.confirm(`Delete all ${data[t].length} ${TABLE_LABELS[t].toLowerCase()} rows from this browser?`)) return;
+      const ok = await askConfirm({
+        title: `Delete all ${TABLE_LABELS[t].toLowerCase()}?`,
+        body: `This removes all ${data[t].length} ${TABLE_LABELS[t].toLowerCase()} rows from this browser. Export a backup first if you might want them back.`,
+        confirmLabel: `Delete ${data[t].length} rows`,
+        danger: true,
+      });
+      if (!ok) return;
       await saveTable(t, [] as never);
     });
 
-  const exportAll = () => downloadText(backupFileName(), makeBackup(useApp.getState().data));
+  const exportAll = () =>
+    showExport({
+      title: 'Export everything',
+      fileName: backupFileName(),
+      text: makeBackup(useApp.getState().data),
+      hint: 'One JSON file with every row. Keep it outside the repository; Restore from file loads it again.',
+    });
 
   const restore = (files: FileList | null) =>
     run(async () => {
@@ -101,7 +113,13 @@ export function DataView() {
         return;
       }
       const total = TABLES.reduce((n, t) => n + result.data![t].length, 0);
-      if (!window.confirm(`Replace everything in this browser with the ${total} rows in ${file.name}?`)) return;
+      const ok = await askConfirm({
+        title: 'Replace everything?',
+        body: `This replaces everything stored in this browser with the ${total} rows in ${file.name}.`,
+        confirmLabel: 'Replace everything',
+        danger: true,
+      });
+      if (!ok) return;
       await saveAll(result.data);
       setReports(result.reports.filter((r) => r.added + r.updated + r.rejected.length + r.warnings.length > 0));
       setMessage(`Restored ${total} rows from ${file.name}.`);
@@ -110,7 +128,7 @@ export function DataView() {
   const totalRows = TABLES.reduce((n, t) => n + data[t].length, 0);
 
   return (
-    <div className="page">
+    <main className="page" id="main" tabIndex={-1}>
       <div className="page-inner">
         <header className="page-head">
           <h2>Data</h2>
@@ -256,7 +274,7 @@ export function DataView() {
           </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

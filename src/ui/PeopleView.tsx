@@ -2,8 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { deletePerson, personDeleteImpact, savePerson, type FieldErrors } from '../data/edit';
 import { ACCOUNT_COVERAGE_ROLES, ROLE_LABELS, ROLES, TERRITORY_TEAM_ROLES, type Person, type Role } from '../data/types';
 import { useApp } from '../state/app';
+import { describeStorageError } from '../data/idb';
 import { SortableTable, type Column } from './SortableTable';
 import { Drawer, Field, StatesPreview, statesText, today } from './forms';
+import { askConfirm } from './dialogs';
 
 export function PeopleView({ regionNames }: { regionNames: Map<string, string> }) {
   const data = useApp((s) => s.data);
@@ -86,7 +88,7 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
   }, [editPerson]);
 
   return (
-    <div className="page with-drawer">
+    <main className="page with-drawer" id="main" tabIndex={-1}>
       <div className="page-scroll">
         <div className="page-inner wide">
           <header className="page-head row">
@@ -152,7 +154,7 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
         </div>
       </div>
       {(adding || editing) && <PersonForm key={formKey} person={editing} regionNames={regionNames} onClose={close} />}
-    </div>
+    </main>
   );
 }
 
@@ -211,7 +213,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
       editPerson(result.record.email);
       setStatus(result.warnings.length ? `Saved, with a note: ${result.warnings.join(' ')}` : 'Saved.');
     } catch (e) {
-      setStatus(`Saving failed: ${e instanceof Error ? e.message : String(e)}`);
+      setStatus(`Saving failed: ${describeStorageError(e)}`);
     }
   };
 
@@ -224,7 +226,13 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
       impact.prospects && `owner on ${impact.prospects} prospect${impact.prospects > 1 ? 's' : ''}`,
       impact.deals && `owner on ${impact.deals} deal${impact.deals > 1 ? 's' : ''}`,
     ].filter(Boolean);
-    if (!window.confirm(`Delete ${person.name}?${extra.length ? ` This also removes them as ${extra.join(', ')}.` : ''}`)) return;
+    const ok = await askConfirm({
+      title: `Delete ${person.name}?`,
+      body: extra.length ? `This also removes them as ${extra.join(', ')}.` : 'Nothing else points at this person.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await saveAll(deletePerson(data, person.email));
     onClose();
   };

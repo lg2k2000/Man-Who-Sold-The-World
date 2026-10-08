@@ -194,6 +194,56 @@ const sets = {
     { name: 'map-to-form', query: '?sample=1', steps: [search('Sample Partner 9'), clickText('Edit in Partners')] },
   ],
 };
+sets.m5 = [
+  { name: '01-home', query: '?sample=1', steps: [away] },
+  { name: '02-north-america', query: '?sample=1', steps: [click('North America'), away] },
+  { name: '03-hover-card', query: '?sample=1', steps: [hoverRegion('US-MT')] },
+  {
+    name: '04-keyboard-focus',
+    query: '?sample=1',
+    steps: [
+      async (page) => {
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(400);
+      },
+    ],
+  },
+  { name: '05-state-zoom', query: '?sample=1', steps: [clickRegion('US-OR', 50, 10), away] },
+  { name: '06-pin-brief', query: '?sample=1', steps: [search('Sample Co 26'), away] },
+  { name: '07-pin-stakeholders', query: '?sample=1', steps: [search('Sample Co 26'), tab('Stakeholders'), away] },
+  { name: '08-pin-coverage', query: '?sample=1', steps: [search('Sample Co 26'), tab('Coverage'), away] },
+  { name: '09-pin-deals', query: '?sample=1', steps: [search('Sample Co 26'), tab('Deals'), away] },
+  { name: '10-filter-overlap', query: '?sample=1', steps: [check('3+ coverage roles'), away] },
+  { name: '11-search', query: '?sample=1', steps: [search('sample person a', false)] },
+  { name: '12-partner-panel', query: '?sample=1', steps: [search('Sample Partner 2'), away] },
+  { name: '13-people', query: '?sample=1#/people', steps: [] },
+  { name: '14-person-form', query: '?sample=1#/people', steps: [row('Sample Person AJ'), away] },
+  { name: '15-partners', query: '?sample=1#/partners', steps: [] },
+  { name: '16-partner-form', query: '?sample=1#/partners', steps: [row('Sample Partner 2(?!\\d)'), away] },
+  { name: '17-data-empty', query: '#/data', steps: [] },
+  {
+    name: '18-import-report',
+    query: '#/data',
+    steps: [pickFiles('people.csv', 'partners.csv', 'broken/prospects.csv', 'broken/deals.csv'), clickText(/^Import 4 files/)],
+  },
+  { name: '19-map-empty', query: '', steps: [away] },
+  {
+    name: '20-editor',
+    query: '',
+    steps: [
+      clickLink('Edit'),
+      clickRegion('CA-AB'),
+      async (page) => {
+        await page.getByRole('dialog').getByLabel('Territory').selectOption('pacnorthwest');
+        await page.waitForTimeout(400);
+      },
+    ],
+  },
+  { name: '21-error-map-load', query: '', route: '**/geo/north-america.topo.json', steps: [] },
+  { name: '22-error-storage-blocked', query: '#/data', blockStorage: true, steps: [] },
+];
 const shots = sets[milestone] ?? sets.m2;
 
 const server = await preview({ root, preview: { port: 4317, strictPort: true }, logLevel: 'error' });
@@ -207,10 +257,20 @@ try {
       if (only && shot.name !== only) continue;
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: scheme, deviceScaleFactor: 1 });
       const page = await context.newPage();
+      const expectsFailure = Boolean(shot.route || shot.blockStorage);
       page.on('pageerror', (e) => errors.push(`${shot.name}/${scheme}: ${e.message}`));
-      page.on('console', (m) => m.type() === 'error' && errors.push(`${shot.name}/${scheme}: ${m.text()}`));
+      page.on('console', (m) => m.type() === 'error' && !expectsFailure && errors.push(`${shot.name}/${scheme}: ${m.text()}`));
+      // Simulated failures: a missing boundaries file, or a browser that refuses IndexedDB.
+      if (shot.route) await page.route(shot.route, (r) => r.fulfill({ status: 404, body: 'missing' }));
+      if (shot.blockStorage) {
+        await page.addInitScript(() => {
+          indexedDB.open = () => {
+            throw new DOMException('blocked', 'SecurityError');
+          };
+        });
+      }
       await page.goto(base + '/' + shot.query);
-      await page.waitForSelector(shot.query.includes('#/') ? '.page' : '.region');
+      await page.waitForSelector(shot.route ? '.map-error' : shot.query.includes('#/') ? '.page' : '.region');
       await page.waitForTimeout(400);
       for (const step of shot.steps) await step(page);
       const file = join(outDir, `${shot.name}-${scheme}.png`);

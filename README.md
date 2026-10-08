@@ -31,6 +31,23 @@ Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtur
 
 Click **Edit** in the legend. Click any state or province to move it to another territory, unassign it, or mark it confirmed. The bar at the top lists every territory whose member count differs from its legend count (you can change the legend count there) and every change in the draft. The draft stays in this browser until you click **Export territories.json**; commit the exported file over `config/territories.json`. If the committed file changes while you have a draft, the map asks whether to keep the draft or use the new file.
 
+## Keyboard and screen readers
+
+- The first Tab stop is "Skip to the map" (or "Skip to content" on other views).
+- On the map, Tab lands on one state or province; the arrow keys move through all of them in legend order, Home and End jump to the first and last, and Enter zooms in. Focusing a region shows its territory card. Escape hides the card or closes the side panel.
+- The next Tab stop is the pins. The arrow keys move between them by name and Enter opens one. The panel takes focus when it opens and gives it back when it closes; the arrow keys move between its tabs.
+- Every region is labeled with its name, territory, whether it is confirmed, and its prospect count. Every pin is labeled with the company, city, and whether its location is unverified, it has 3 or more coverage roles, or it has an open deal.
+- The `+` and `−` buttons zoom without a mouse wheel.
+- Territory colors come from the config and several are pale, so a darker coastline outlines the US and Canada and keeps every territory's edge at 3:1 or more against the background in both themes. Text meets 4.5:1. `tests/contrast.test.ts` checks the theme colors; `npm run a11y` runs axe-core on every view in both themes and walks the map by keyboard.
+
+## When something fails
+
+- If the map boundaries do not load, the map says why and offers "Try again".
+- If the browser blocks storage (a private window, or site data turned off), the app keeps working in this tab's memory and says so on every page; "Export everything" keeps a copy.
+- A storage error while saving (for example, the disk is full) is reported in plain words and nothing is changed.
+- If `config/territories.json` fails its checks, the app lists the problems instead of drawing a wrong map.
+- If a page crashes, the app offers a reload and a backup of the data.
+
 ## Importing data
 
 Open **Data** in the header. Pick a file; the app guesses its table from the file name (`people.csv`, `acme-briefs.json`) and lets you change it. Every row is checked before anything is saved, and the report lists each rejected row with its row number, column, and reason. Rows with a key that already exists update that row; other rows stay. Tick "Replace" to swap the whole table instead.
@@ -157,6 +174,7 @@ npm run typecheck    # TypeScript, strict
 npm test             # unit tests (Vitest)
 npm run build        # production build into dist/
 npm run screenshots -- m4   # headless Chromium screenshots of the build into docs/screenshots/m4/ (sets: m1 to m5)
+npm run a11y         # axe-core scan of every view in both themes, plus a keyboard walk (needs a build)
 npm run format       # Prettier
 ```
 

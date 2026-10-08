@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RegionAssignment, TerritoryConfig } from '../config/territories';
 import { territorySummary } from '../data/derive';
 import type { Person } from '../data/types';
@@ -21,17 +21,26 @@ export function TerritoryCard({ config, index, regionNames, stage }: Props) {
   const y = useHover((s) => s.y);
   const data = useApp((s) => s.data);
   const territory = code ? index.get(code)?.territory : undefined;
+  const ref = useRef<HTMLElement>(null);
+  const [cardH, setCardH] = useState(320);
+  useLayoutEffect(() => {
+    const h = ref.current?.offsetHeight;
+    if (h && h !== cardH) setCardH(h);
+  });
 
   const summary = useMemo(() => (territory ? territorySummary(data, config, territory.id) : null), [data, config, territory]);
 
   if (!code) return null;
   const left = x + 18 + CARD_W > stage.w ? Math.max(8, x - 18 - CARD_W) : x + 18;
   // Below the pointer in the top half of the map, above it in the bottom half.
-  const place = y < stage.h / 2 ? { top: y + 14 } : { bottom: Math.max(8, stage.h - y + 14) };
+  // Below the pointer when it fits, otherwise above it, and never off the top or bottom.
+  const below = y + 14;
+  const above = y - 14 - cardH;
+  const top = Math.max(8, Math.min(below + cardH <= stage.h - 8 ? below : above, stage.h - cardH - 8));
   const name = regionNames.get(code) ?? code;
 
   return (
-    <aside className="tcard" style={{ left, width: CARD_W, ...place }} aria-hidden="true">
+    <aside className="tcard" ref={ref} style={{ left, top, width: CARD_W }} aria-hidden="true">
       {!territory || !summary ? (
         <>
           <div className="tcard-head">
@@ -111,7 +120,7 @@ export function TerritoryCard({ config, index, regionNames, stage }: Props) {
               </ul>
             )}
           </section>
-          <p className="muted small tcard-hint">Click to zoom to {name}.</p>
+          <p className="muted small tcard-hint">Click or press Enter to zoom to {name}.</p>
         </>
       )}
     </aside>

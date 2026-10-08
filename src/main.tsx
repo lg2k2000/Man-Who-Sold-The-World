@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { ConfigError, ErrorBoundary } from './ui/ErrorBoundary';
+import { configProblems } from './config';
 import { MemoryStore } from './data/store';
 import { IndexedDbStore } from './data/idb';
 import { useApp } from './state/app';
@@ -52,6 +54,6 @@ chooseStore().then(({ store, problem }) => useApp.getState().attachStore(store, 
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>{configProblems.length ? <ConfigError problems={configProblems} /> : <App />}</ErrorBoundary>
   </StrictMode>,
 );

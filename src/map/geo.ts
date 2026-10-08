@@ -1,6 +1,6 @@
 import { geoConicConformal, geoPath, type GeoProjection } from 'd3-geo';
-import { feature } from 'topojson-client';
-import type { Feature, FeatureCollection, Geometry, MultiPoint } from 'geojson';
+import { feature, mesh } from 'topojson-client';
+import type { Feature, FeatureCollection, Geometry, MultiLineString, MultiPoint } from 'geojson';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 
 export interface RegionProps {
@@ -20,6 +20,8 @@ export type CountryFeature = Feature<Geometry, CountryProps>;
 export interface Boundaries {
   regions: RegionFeature[];
   countries: CountryFeature[];
+  /** The outer edge of the US and Canada (coasts and borders with other countries), without Hawaii. */
+  coast: MultiLineString;
 }
 
 export const HAWAII = 'US-HI';
@@ -31,15 +33,35 @@ type BoundaryTopology = Topology<{
 }>;
 
 export function boundariesFromTopology(topo: BoundaryTopology): Boundaries {
+  if (topo?.type !== 'Topology' || !topo.objects?.regions || !topo.objects?.countries) {
+    throw new Error('The map boundaries file is damaged: it has no regions or countries.');
+  }
   const regions = feature(topo, topo.objects.regions) as FeatureCollection<Geometry, RegionProps>;
   const countries = feature(topo, topo.objects.countries) as FeatureCollection<Geometry, CountryProps>;
-  return { regions: regions.features, countries: countries.features };
+  const mainland = {
+    ...topo.objects.regions,
+    geometries: topo.objects.regions.geometries.filter((g) => (g.properties as RegionProps | undefined)?.code !== HAWAII),
+  };
+  // Arcs used by only one region are the outside edge of the two countries.
+  const coast = mesh(topo, mainland, (a, b) => a === b);
+  return { regions: regions.features, countries: countries.features, coast };
 }
 
 export async function loadBoundaries(url = GEO_URL): Promise<Boundaries> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Map boundaries failed to load (HTTP ${res.status}).`);
-  return boundariesFromTopology((await res.json()) as BoundaryTopology);
+  let res: Response;
+  try {
+    res = await fetch(url);
+  } catch {
+    throw new Error('The map boundaries could not be downloaded. Check the connection and try again.');
+  }
+  if (!res.ok) throw new Error(`The map boundaries failed to load (HTTP ${res.status}).`);
+  let topo: BoundaryTopology;
+  try {
+    topo = (await res.json()) as BoundaryTopology;
+  } catch {
+    throw new Error('The map boundaries file is damaged: it is not valid JSON.');
+  }
+  return boundariesFromTopology(topo);
 }
 
 /**

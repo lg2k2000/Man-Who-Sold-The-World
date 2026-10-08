@@ -15,13 +15,15 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 
 - 2026-10-08: M4 (people and partners) is built on branch `m4-people-partners`: People and Partners views with sortable, filterable tables and edit forms beside them, key changes that carry over to every reference, deletes that say what they clear, "Edit in People" and "Edit in Partners" from the map panels, and a Settings field for the editor's name. 116 unit tests. Screenshots in `docs/screenshots/m4/`.
 
+- 2026-10-08: M5 (hardening) is built on branch `m5-hardening`: keyboard access to regions, pins, and panel tabs with roving focus; screen reader labels; a skip link and landmarks; focus moved into and back out of the side panel; zoom buttons; a coastline that brings every territory edge to 3:1 against the background; a darker focus color; contrast tests on the theme colors; an axe-core scan with no violations on every view in both themes; error states for the boundary file, blocked or full storage, a bad config file, and crashes. 151 unit tests. The full screenshot pass is in `docs/screenshots/m5/`.
+
 ## Next
 
-- M5 (hardening) on branch `m5-hardening`, stacked on `m4-people-partners`.
+- Phase 1 is built. The owner reviews and merges the PRs in order (plan, then M1 to M5).
 
 ## Open questions
 
-- The repository is still public, so the reference screenshot crop (legend blanked) is not committed yet. Once the owner makes the repository private, a later milestone commits it to `docs/reference/`.
+- The repository is still public, so the reference screenshot crop (legend blanked) is not committed. Once the owner makes the repository private, a session can commit it to `docs/reference/`.
 - Hosting, so the owner can click around in the app. See "Open items" in `docs/plan.md`.
 
 ## Decisions and why
@@ -61,3 +63,8 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 - 2026-10-08: Sorting puts empty values last in both directions and compares text naturally ("Co 2" before "Co 10").
 - 2026-10-08: The edit form sits beside the table rather than over it, so the row being edited stays visible.
 - 2026-10-08: Prettier (single quotes, 140 columns) formats the code; M4 applies it to every file in one separate commit so later diffs stay clean.
+- 2026-10-08: The map takes keyboard focus as two roving groups (regions, then pins) instead of one Tab stop per region, so a keyboard user reaches the pins in two presses rather than sixty-four. Regions go in legend order, then by name.
+- 2026-10-08: Four territory colors in light mode (PacNorthwest, TOLA, Midwest, New York and Fed) and two in dark mode (4 Corners, Ohio Valley) are under 3:1 against the background. The colors are the reference map's and stay. A coastline stroke around the US and Canada (#6b7780 light, #8d9aa4 dark, 4:1 or more against the water) gives every territory a visible edge instead, and territory names on cards, labels, and the legend mean color is never the only cue.
+- 2026-10-08: The focus color is #017d61 in light mode, a darker HPE green, because #01a982 reaches only 3.0:1 on white and 2.65:1 on the page color. Dark mode keeps #01a982.
+- 2026-10-08: axe-core (MPL-2.0, free, dev only) runs in `npm run a11y` against the production build. It found one real failure, the active view tab at under 4.5:1, which is fixed, and one target-size problem on small text buttons, which now have 24px targets.
+- 2026-10-08: Confirmations ("Delete all", restore, discard draft, deleting a person or partner) and exports (backup, territories.json) happen in dialogs inside the page instead of the browser's own confirm() and a bare download. Sandboxed frames, such as a claude.ai artifact, refuse confirm() and block downloads; the export dialog also offers the text to copy. View anchors are bare tokens (`#data`, `#people`) because some frames drop anything else after the `#`.

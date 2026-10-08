@@ -13,6 +13,7 @@ import { PeopleView } from './ui/PeopleView';
 import { PartnersView } from './ui/PartnersView';
 import { DraftNotice, EditBar, RegionEditor } from './ui/TerritoryEditor';
 import { EmptyMap } from './ui/EmptyMap';
+import { Dialogs } from './ui/dialogs';
 import { useApp, type View } from './state/app';
 
 const LEGEND_WIDTH = 340;
@@ -71,7 +72,8 @@ export function App() {
     return () => window.removeEventListener('hashchange', fromHash);
   }, [setView]);
   useEffect(() => {
-    const want = view === 'map' ? '' : `#/${view}`;
+    // A bare token (#data) so the address works where only plain anchors survive.
+    const want = view === 'map' ? '' : `#${view}`;
     if (location.hash !== want) history.replaceState(null, '', want || location.pathname + location.search);
   }, [view]);
 
@@ -85,6 +87,17 @@ export function App() {
 
   return (
     <div className="app">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(e) => {
+          e.preventDefault();
+          const target = document.querySelector<HTMLElement>(view === 'map' ? 'path.region[tabindex="0"]' : '#main');
+          target?.focus();
+        }}
+      >
+        {view === 'map' ? 'Skip to the map' : 'Skip to content'}
+      </a>
       <Header config={config} homeId={homeId} />
       {hasSample && <SampleBanner />}
       {storeProblem && view === 'map' && (
@@ -98,7 +111,7 @@ export function App() {
       {view === 'map' && (
         <>
           {editing ? <EditBar regionNames={regionNames} /> : <FilterBar config={config} regionNames={regionNames} />}
-          <main className="stage" ref={stageRef}>
+          <main className="stage" ref={stageRef} id="main" tabIndex={-1}>
             {error && (
               <div className="map-error" role="alert">
                 <p>{error}</p>
@@ -134,6 +147,7 @@ export function App() {
           </main>
         </>
       )}
+      <Dialogs />
     </div>
   );
 }
