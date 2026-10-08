@@ -1,6 +1,6 @@
 # Phase 1 plan
 
-Status on 2026-10-07: revised after the owner's first answers, waiting for the owner's go. Nothing below is built yet.
+Status: approved by the owner on 2026-10-07 ("go start"). Phase 1 was built on 2026-10-07 and 08 as M1 to M5; `docs/progress.md` records what changed from this plan and why.
 
 Phase 1 builds a web app for a laptop browser that shows, for any state or province, who at HPE covers it, which partners work there, and which prospects sit there. It ships with an empty database, and only files the owner imports fill it.
 
