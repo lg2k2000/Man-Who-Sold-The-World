@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { TerritoryConfig } from '../config/territories';
 import { teamFor, teamLine } from '../data/teams';
 import type { Person } from '../data/types';
+import { useApp } from '../state/app';
 
 interface Props {
   config: TerritoryConfig;
@@ -12,13 +13,22 @@ interface Props {
 
 export function Legend({ config, people, focusId, onSelect }: Props) {
   const [open, setOpen] = useState(true);
+  const editing = useApp((s) => s.editingTerritories);
+  const setEditing = useApp((s) => s.setEditingTerritories);
   return (
     <section className="legend" aria-label="Territory legend">
       <div className="legend-head">
         <h2>{config.fiscal_year} territories</h2>
-        <button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? 'Hide' : 'Show'}
-        </button>
+        <span className="legend-actions">
+          {!editing && (
+            <button type="button" className="link" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          )}
+          <button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? 'Hide' : 'Show'}
+          </button>
+        </span>
       </div>
       {open && (
         <ul>

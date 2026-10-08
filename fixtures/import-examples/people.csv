@@ -1,0 +1,8 @@
+name,email,role,specialty,territories,states,notes,source,verified_at,updated_by
+Sample Person A,sample.a@example.com,Morpheus specialist,,PacNorthwest,WA;OR;ID;MT;WY;AK;BC;YT,,example file,2026-10-01,example
+Sample Person B,sample.b@example.com,morpheus,,pacnorthwest,WA;OR;ID;MT;WY;AK;BC;YT,,example file,2026-10-01,example
+Sample Person C,sample.c@example.com,opsramp,,pacnorthwest;southwest,WA;OR;CA;NV,,example file,,example
+Sample Person D,sample.d@example.com,eam,,,WA;OR,Covers Seattle enterprise accounts,example file,,example
+Sample Person E,sample.e@example.com,storage,,,WA;OR;ID,,example file,,example
+Sample Person F,sample.f@example.com,networking,aruba,,WA;BC,,example file,,example
+Sample Person G,sample.g@example.com,sled;other,,,WA,,example file,,example

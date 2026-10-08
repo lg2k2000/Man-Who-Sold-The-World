@@ -1,0 +1,5 @@
+op_id,prospect_id,stage,close_date,hpe_owner_email,partner_id,as_of
+OPE-0000000201,sample-co-x,Propose,2027-01-31,sample.d@example.com,sample-partner-a,2026-10-01
+OPE-12345,sample-co-x,Develop,2027-01-31,,,2026-10-01
+OPE-0000000202,Sample Co X,Develop,2027/01/31,,,2026-10-01
+OPE-0000000201,sample-co-x,Commit,,,,2026-10-01

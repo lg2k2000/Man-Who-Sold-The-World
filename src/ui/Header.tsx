@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TerritoryConfig } from '../config/territories';
-import { useApp, type ThemeSetting } from '../state/app';
+import { useApp, type ThemeSetting, type View } from '../state/app';
 import { Search } from './Search';
 
 interface Props {
@@ -8,8 +8,15 @@ interface Props {
   homeId: string;
 }
 
+const NAV: { view: View; label: string }[] = [
+  { view: 'map', label: 'Map' },
+  { view: 'data', label: 'Data' },
+];
+
 export function Header({ config, homeId }: Props) {
   const focusTerritory = useApp((s) => s.focusTerritory);
+  const view = useApp((s) => s.view);
+  const setView = useApp((s) => s.setView);
   const home = config.territories.find((t) => t.id === homeId);
 
   return (
@@ -20,16 +27,27 @@ export function Header({ config, homeId }: Props) {
         </svg>
         <h1>{config.fiscal_year} Territory Coverage</h1>
       </div>
-      <Search />
-      <nav className="controls" aria-label="Map controls">
-        <button type="button" className="btn" onClick={() => focusTerritory(homeId)} disabled={!home} title={home ? `Frame ${home.name}` : undefined}>
-          My territory
-        </button>
-        <button type="button" className="btn" onClick={() => focusTerritory(null)}>
-          North America
-        </button>
-        <SettingsMenu config={config} homeId={homeId} />
+      <nav className="views" aria-label="Views">
+        {NAV.map((n) => (
+          <button key={n.view} type="button" className={view === n.view ? 'on' : ''} aria-current={view === n.view ? 'page' : undefined} onClick={() => setView(n.view)}>
+            {n.label}
+          </button>
+        ))}
       </nav>
+      <Search />
+      <div className="controls">
+        {view === 'map' && (
+          <>
+            <button type="button" className="btn" onClick={() => focusTerritory(homeId)} disabled={!home} title={home ? `Frame ${home.name}` : undefined}>
+              My territory
+            </button>
+            <button type="button" className="btn" onClick={() => focusTerritory(null)}>
+              North America
+            </button>
+          </>
+        )}
+        <SettingsMenu config={config} homeId={homeId} />
+      </div>
     </header>
   );
 }

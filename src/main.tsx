@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { MemoryStore } from './data/store';
+import { IndexedDbStore } from './data/idb';
 import { useApp } from './state/app';
 import type { Dataset } from './data/types';
 import './styles.css';
@@ -14,9 +15,21 @@ async function chooseStore() {
     const { default: sample } = await import('../fixtures/sample/dataset.json');
     const data = sample as Dataset;
     if (sampleParam === 'stress') data.prospects = stressCopies(data.prospects, 3);
-    return new MemoryStore(data);
+    return { store: new MemoryStore(data), problem: null };
   }
-  return new MemoryStore();
+  try {
+    const store = new IndexedDbStore();
+    await store.load();
+    return { store, problem: null };
+  } catch {
+    return {
+      store: new MemoryStore(),
+      problem: {
+        message:
+          'This browser blocked storage (a private window or a site-data setting), so imports last only until this tab closes. Use Export everything in Data to keep a copy.',
+      },
+    };
+  }
 }
 
 function stressCopies(list: Dataset['prospects'], times: number): Dataset['prospects'] {
@@ -35,7 +48,7 @@ function stressCopies(list: Dataset['prospects'], times: number): Dataset['prosp
   return out;
 }
 
-chooseStore().then((store) => useApp.getState().attachStore(store));
+chooseStore().then(({ store, problem }) => useApp.getState().attachStore(store, problem));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { config, regionIndex } from '../config';
 import { coverageRoles, isOpenDeal, orgTree, OVERLAP_THRESHOLD, type OrgNode } from '../data/derive';
 import {
   BRIEF_SECTIONS,
@@ -92,6 +91,7 @@ function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNam
   const roles = coverageRoles(covering);
   const partner = prospect.primary_partner_id ? index.partnerById.get(prospect.primary_partner_id) : undefined;
   const owner = prospect.hpe_owner_email ? index.personByEmail.get(prospect.hpe_owner_email) : undefined;
+  const regionIndex = useApp((s) => s.regionIndex);
   const territory = regionIndex.get(prospect.state)?.territory;
   const counts: Record<Tab, number> = {
     Brief: brief ? BRIEF_SECTIONS.reduce((n, s) => n + brief.sections[s].length, 0) : 0,
@@ -348,6 +348,7 @@ function DealsTab({ prospect }: { prospect: Prospect }) {
 
 function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<string, string> }) {
   const index = useApp((s) => s.index);
+  const config = useApp((s) => s.config);
   const openProspect = useApp((s) => s.openProspect);
   const accounts = index.coverageByPerson.get(person.email) ?? [];
   return (
