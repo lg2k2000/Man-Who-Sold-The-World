@@ -5,6 +5,7 @@ import { useApp } from '../state/app';
 import { describeStorageError } from '../data/idb';
 import { SortableTable, type Column } from './SortableTable';
 import { Drawer, Field, StatesPreview, statesText, today } from './forms';
+import { askConfirm } from './dialogs';
 
 export function PeopleView({ regionNames }: { regionNames: Map<string, string> }) {
   const data = useApp((s) => s.data);
@@ -225,7 +226,13 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
       impact.prospects && `owner on ${impact.prospects} prospect${impact.prospects > 1 ? 's' : ''}`,
       impact.deals && `owner on ${impact.deals} deal${impact.deals > 1 ? 's' : ''}`,
     ].filter(Boolean);
-    if (!window.confirm(`Delete ${person.name}?${extra.length ? ` This also removes them as ${extra.join(', ')}.` : ''}`)) return;
+    const ok = await askConfirm({
+      title: `Delete ${person.name}?`,
+      body: extra.length ? `This also removes them as ${extra.join(', ')}.` : 'Nothing else points at this person.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await saveAll(deletePerson(data, person.email));
     onClose();
   };

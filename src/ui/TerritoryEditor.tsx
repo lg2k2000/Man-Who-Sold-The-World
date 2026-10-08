@@ -4,7 +4,7 @@ import { committedConfig } from '../config';
 import { diffConfigs, moveRegion, serializeConfig, setConfirmed, setLegendCount } from '../config/editor';
 import { countWarnings } from '../config/territories';
 import { useApp } from '../state/app';
-import { downloadText } from './download';
+import { askConfirm, showExport } from './dialogs';
 
 /** The region whose editor is open, and where on the map it was clicked. */
 export const useEditTarget = create<{
@@ -23,7 +23,12 @@ export const useEditTarget = create<{
 
 function exportConfig() {
   const cfg = useApp.getState().config;
-  downloadText('territories.json', serializeConfig(cfg));
+  showExport({
+    title: 'Export territories.json',
+    fileName: 'territories.json',
+    text: serializeConfig(cfg),
+    hint: 'Commit this file over config/territories.json to make the draft the real territories.',
+  });
 }
 
 /** The bar across the top of the map while editing territories. */
@@ -52,10 +57,14 @@ export function EditBar({ regionNames }: { regionNames: Map<string, string> }) {
           type="button"
           className="btn"
           disabled={changes.length === 0}
-          onClick={() => {
-            if (
-              window.confirm(`Discard ${changes.length} change${changes.length === 1 ? '' : 's'} and go back to the committed territories?`)
-            ) {
+          onClick={async () => {
+            const ok = await askConfirm({
+              title: 'Discard the territory draft?',
+              body: `This drops ${changes.length} change${changes.length === 1 ? '' : 's'} and goes back to config/territories.json.`,
+              confirmLabel: 'Discard draft',
+              danger: true,
+            });
+            if (ok) {
               close();
               discardDraft();
             }

@@ -28,6 +28,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
           <button type="button" className="btn" onClick={() => downloadText(backupFileName(), makeBackup(useApp.getState().data))}>
             Save a backup
           </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => navigator.clipboard?.writeText(makeBackup(useApp.getState().data)).catch(() => undefined)}
+          >
+            Copy a backup
+          </button>
         </div>
         <pre>{this.state.error.message}</pre>
       </div>

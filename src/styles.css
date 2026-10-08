@@ -2196,3 +2196,55 @@ textarea.text-input {
   min-height: 24px;
   padding: 3px 0;
 }
+
+/* In-page dialogs */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding-inline: 16px;
+  background: color-mix(in srgb, #0b1014 45%, transparent);
+}
+
+.dialog {
+  width: min(560px, 100%);
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.dialog p {
+  margin: 0 0 12px;
+}
+
+.export-text {
+  width: 100%;
+  margin-bottom: 8px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.btn-row.end {
+  justify-content: flex-end;
+}
+
+.btn.danger-solid {
+  border-color: #b33434;
+  background: #b33434;
+  color: #ffffff;
+}
+
+.btn.danger-solid:hover {
+  background: #9c2a2a;
+}

@@ -5,6 +5,7 @@ import { useApp } from '../state/app';
 import { describeStorageError } from '../data/idb';
 import { SortableTable, type Column } from './SortableTable';
 import { Drawer, Field, StatesPreview, statesText, today } from './forms';
+import { askConfirm } from './dialogs';
 
 const FLAG_ORDER: Record<YesNoUnknown, number> = { yes: 0, unknown: 1, no: 2 };
 
@@ -222,7 +223,13 @@ function PartnerForm({ partner, regionNames, onClose }: { partner: Partner | nul
       impact.prospects && `primary partner on ${impact.prospects} prospect${impact.prospects > 1 ? 's' : ''}`,
       impact.deals && `partner on ${impact.deals} deal${impact.deals > 1 ? 's' : ''}`,
     ].filter(Boolean);
-    if (!window.confirm(`Delete ${partner.name}?${extra.length ? ` This also clears it as ${extra.join(' and ')}.` : ''}`)) return;
+    const ok = await askConfirm({
+      title: `Delete ${partner.name}?`,
+      body: extra.length ? `This also clears it as ${extra.join(' and ')}.` : 'Nothing else points at this partner.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
     await saveAll(deletePartner(data, partner.id));
     onClose();
   };
