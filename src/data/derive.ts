@@ -120,6 +120,16 @@ export function ownerName(index: DataIndex, d: { hpe_owner_id: string | null; ow
   return d.owner_name ?? '';
 }
 
+/** What a pin says about a company's open deals: how many, their total, and the HPE owners on them. */
+export function openDealSummary(index: DataIndex, companyId: string): string {
+  const open = (index.dealsByCompany.get(companyId) ?? []).filter(isOpenDeal);
+  if (!open.length) return '';
+  const owners = [...new Set(open.map((d) => ownerName(index, d)).filter(Boolean))];
+  const total = open.reduce((n, d) => n + (d.amount ?? 0), 0);
+  const deals = `${open.length} open deal${open.length > 1 ? 's' : ''}${total ? `, ${moneyShort(total)}` : ''}`;
+  return owners.length ? `${deals}. HPE owner: ${owners.join(', ')}` : deals;
+}
+
 /** A deal's name as shown: its own, or the company's with "deal" after it. */
 export function dealLabel(index: DataIndex, d: Deal): string {
   return d.name || `${index.companyById.get(d.company_id)?.name ?? d.company_id} deal`;
@@ -130,13 +140,26 @@ export interface Filters {
   tierFit: TierFit | null;
   partnerId: string | null;
   openDeal: 'any' | 'yes' | 'no';
+  /** Open pipeline in US dollars a company needs to keep its pin; 0 means any. */
+  minPipeline: number;
   overlapOnly: boolean;
 }
 
-export const NO_FILTERS: Filters = { territoryId: null, tierFit: null, partnerId: null, openDeal: 'any', overlapOnly: false };
+export const NO_FILTERS: Filters = {
+  territoryId: null,
+  tierFit: null,
+  partnerId: null,
+  openDeal: 'any',
+  minPipeline: 0,
+  overlapOnly: false,
+};
+
+/** The deal sizes the filter bar offers, in US dollars of open pipeline. */
+export const PIPELINE_STEPS = [25_000, 50_000, 100_000, 250_000] as const;
 
 export function activeFilterCount(f: Filters): number {
-  return [f.tierFit, f.partnerId, f.openDeal !== 'any' ? 1 : null, f.overlapOnly || null].filter((x) => x !== null).length;
+  return [f.tierFit, f.partnerId, f.openDeal !== 'any' || f.minPipeline > 0 ? 1 : null, f.overlapOnly || null].filter((x) => x !== null)
+    .length;
 }
 
 export function territoryCodes(config: TerritoryConfig, territoryId: string): Set<string> {
@@ -150,10 +173,15 @@ export function filterCompanies(d: Dataset, index: DataIndex, config: TerritoryC
     if (!isPinned(c)) return false;
     if (codes && !codes.has(c.state!)) return false;
     if (f.tierFit && c.tier_fit !== f.tierFit) return false;
-    if (f.partnerId && c.primary_partner_id !== f.partnerId && !(index.dealsByCompany.get(c.id) ?? []).some((x) => x.partner_id === f.partnerId))
+    if (
+      f.partnerId &&
+      c.primary_partner_id !== f.partnerId &&
+      !(index.dealsByCompany.get(c.id) ?? []).some((x) => x.partner_id === f.partnerId)
+    )
       return false;
     if (f.openDeal === 'yes' && !index.openDealCompanies.has(c.id)) return false;
     if (f.openDeal === 'no' && index.openDealCompanies.has(c.id)) return false;
+    if (f.minPipeline > 0 && (index.openPipeline.get(c.id) ?? 0) < f.minPipeline) return false;
     if (f.overlapOnly && !hasOverlap(index, c.id)) return false;
     return true;
   });
@@ -360,4 +388,3 @@ export function moneyShort(n: number): string {
 function trim(x: number): string {
   return x >= 100 ? String(Math.round(x)) : x.toFixed(1).replace(/\.0$/, '');
 }
-

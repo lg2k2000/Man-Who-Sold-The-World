@@ -2,7 +2,7 @@
 
 A web app for a laptop browser that shows HPE's FY27 sales territories on a map of North America, with a small CRM behind it: companies (prospects, customers, and partners), the contacts at them, and the deals with them, plus the HPE team and who covers which account.
 
-The app ships with an empty database. Data comes only from files the owner imports, and it stays in the browser. Nothing real is committed to this repository except `config/territories.json`, which holds geography and colors.
+The app ships with an empty database. Data comes only from files the owner imports, or from a snapshot published with the owner's private copy of the app, and it stays in the browser. Nothing real is committed to this repository except `config/territories.json`, which holds geography and colors.
 
 ## Run it
 
@@ -17,9 +17,9 @@ Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtur
 ## Using the map
 
 - Hover a territory to see its card: the territory team, other HPE people covering its states by role, top partners, and counts of companies, open deals, and open pipeline dollars.
-- Click a state or province to zoom to it and show its companies as pins. Every company with a state gets a pin except partners. A company without coordinates sits at the state's center with a dashed pin, marked "location unverified"; one without a state has no pin until someone adds it.
+- Click a state or province to zoom to it and show its companies as pins. Every company with a state gets a pin except partners. A company without coordinates sits at its HQ city when the bundled towns include it, otherwise at the state's center, with a dashed pin marked "location unverified"; one without a state has no pin until someone adds it. Hovering a pin shows its open deals, their total, and the HPE owners on them.
 - Click a pin to open the side panel with Brief, Contacts (an org chart from who reports to whom), Coverage, and Deals with amounts.
-- The filter bar narrows pins by territory, tier fit, partner (as primary partner or on a deal), open deal, and accounts covered by three or more account coverage roles (EAM excluded), which also get a green ring.
+- The filter bar narrows pins by territory, tier fit, partner (as primary partner or on a deal), open deal or open pipeline of at least $25K, $50K, $100K, or $250K, and accounts covered by three or more account coverage roles (EAM excluded), which also get a green ring.
 - Press `/` to search companies, contacts, deals (by name or op ID), and the HPE team. Picking a company frames it on the map and opens its panel; picking a deal opens it in Deals.
 - At the full continent view each state shows a company count; pins appear once a territory or state is chosen or the map is zoomed in.
 - The map draws cities and towns, highways, rivers and lakes, metro areas, US county lines, and state and province names over the territory colors. More appears as you zoom in: big metros at the continent view, state capitals and regional cities at territory zoom, and towns of 5,000 or more people (1,000 or more in Alaska and the northern territories) at state zoom and closer. County lines show from state zoom, smaller highways and rivers a little before. Labels never overlap; a name moves to the side of its dot clear of the pins when it can.
@@ -77,6 +77,8 @@ Dates can be `2026-10-15`, `10/15/2026`, `15-Oct-2026`, or spreadsheet dates. Am
 
 `fixtures/import-examples/` holds a fake example of each import, plus `manager-pipeline.xlsx`, laid out like a Salesforce pipeline report (`npm run example-workbook` rebuilds it).
 
+A copy of the app can be published with a snapshot: a `snapshot.json` next to `index.html` that holds import files (`npm run snapshot` packs them; see `scripts/make-snapshot.mjs`). A browser that holds no real data loads it when the app opens, and the Data page can load it again over existing data, the way an import does. The repository never holds a snapshot, because it carries real data; it goes only into the owner's private published copy.
+
 Data lives in this browser's IndexedDB and never leaves it. "Export everything" saves one JSON backup file; "Restore from file" loads one, including backups made by earlier versions. Keep import files and backups in `data/` (Git ignores it) or outside the repository.
 
 <!-- import-columns:start -->
@@ -93,7 +95,7 @@ An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. T
 | `website` | no | Web address. | url, web, domain |
 | `hq_city` | no | Headquarters city. | city, hq city, billing city, headquarters city |
 | `state` | no | Headquarters state or province: WA, US-WA, or Washington. A company without one has no pin on the map. | province, state province, hq state, billing state, billing state province, headquarters state |
-| `lat` | no | Headquarters latitude. Leave lat and lng empty to pin at the state center as "location unverified". | latitude |
+| `lat` | no | Headquarters latitude. Leave lat and lng empty to pin at the HQ city, or at the state center when the city is unknown, as "location unverified". | latitude |
 | `lng` | no | Headquarters longitude, negative in North America. | lon, long, longitude |
 | `industry` | no | Free text. | vertical, sector |
 | `description` | no | One line about the company. | about, summary |

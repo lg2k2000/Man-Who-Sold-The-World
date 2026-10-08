@@ -3,9 +3,11 @@ import { TABLES, type Dataset, type TableName } from '../data/types';
 import { describeStorageError } from '../data/idb';
 import type { ImportReport } from '../import/importer';
 import { backupFileName, makeBackup, restoreBackup } from '../import/backup';
+import { applySnapshot, markSnapshotApplied, snapshotApplied } from '../import/snapshot';
 import { TABLE_LABELS } from '../import/tables';
 import { useApp, withoutSample } from '../state/app';
 import { askConfirm, showExport } from './dialogs';
+import { today } from './forms';
 import { ImportPanel, ReportDetails } from './ImportPanel';
 
 const EMPTY_HINT: Record<TableName, string> = {
@@ -26,6 +28,7 @@ export function DataView() {
   const saveTable = useApp((s) => s.saveTable);
   const saveAll = useApp((s) => s.saveAll);
   const storeProblem = useApp((s) => s.storeProblem);
+  const snapshot = useApp((s) => s.snapshot);
 
   const [busy, setBusy] = useState(false);
   const [reports, setReports] = useState<ImportReport[]>([]);
@@ -56,6 +59,18 @@ export function DataView() {
     run(async () => {
       await saveAll(withoutSample(useApp.getState().data));
       setMessage('Sample data removed.');
+    });
+
+  const loadSnapshot = () =>
+    run(async () => {
+      if (!snapshot) return;
+      const { data: next, reports: done } = applySnapshot(useApp.getState().data, snapshot.snap, config, today());
+      await saveAll(next);
+      markSnapshotApplied(snapshot.snap.id);
+      setReports(done.filter((r) => r.added + r.updated + r.rejected.length + r.warnings.length > 0));
+      const added = done.reduce((n, r) => n + r.added, 0);
+      const updated = done.reduce((n, r) => n + r.updated, 0);
+      setMessage(`Loaded the snapshot: ${added} rows added, ${updated} updated. Nothing stored was blanked.`);
     });
 
   const clearTable = (t: TableName) =>
@@ -149,6 +164,30 @@ export function DataView() {
             </tbody>
           </table>
         </section>
+
+        {snapshot && (
+          <section className="card">
+            <h3>Snapshot published with this copy</h3>
+            <p className="small">
+              {snapshot.snap.label}
+              {snapshot.snap.made && `, made ${snapshot.snap.made}`}.{' '}
+              {snapshot.loadedNow
+                ? 'It loaded into this browser when the app opened.'
+                : snapshotApplied(snapshot.snap.id)
+                  ? 'This browser has loaded it before.'
+                  : 'This browser already held data, so it was not loaded on its own.'}
+            </p>
+            <p className="muted small">
+              {snapshot.snap.files.map((f) => `${f.name} (${TABLE_LABELS[f.table]})`).join(', ')}. Loading it again adds and updates rows
+              the way an import does and never blanks a field.
+            </p>
+            <div className="btn-row">
+              <button type="button" className="btn solid" onClick={loadSnapshot} disabled={busy}>
+                Load the snapshot
+              </button>
+            </div>
+          </section>
+        )}
 
         <div className="card-row">
           <section className="card">

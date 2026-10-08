@@ -160,7 +160,7 @@ try {
   await step('Enter', /^path\|Idaho/);
   const chip = await page.locator('.chip').textContent();
   if (!chip?.includes('Idaho')) failures.push(`keyboard: Enter on Idaho did not select it (chip: ${chip})`);
-  await step('Tab', /^g\|Sample Co \d+, (Boise|Idaho Falls)/);
+  await step('Tab', /^g\|Sample Co \d+ \((Boise|Idaho Falls)/);
   await step('ArrowRight', /^g\|Sample Co/);
   await step('Enter', /^h2\|Sample Co/);
   for (let i = 0; i < 12; i++) {

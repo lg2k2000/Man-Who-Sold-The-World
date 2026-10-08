@@ -8,16 +8,7 @@
 // email.
 
 import { slugify, uniqueId } from './names';
-import {
-  blankCompany,
-  type Brief,
-  type Company,
-  type Contact,
-  type Dataset,
-  type Deal,
-  type Person,
-  type Provenance,
-} from './types';
+import { blankCompany, type Brief, type Company, type Contact, type Dataset, type Deal, type Person, type Provenance } from './types';
 
 /** A person as versions 1 and 2 stored them, keyed by email. */
 type EmailKeyedPerson = Omit<Person, 'id'>;

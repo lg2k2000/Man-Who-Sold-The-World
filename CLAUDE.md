@@ -55,7 +55,7 @@ Every table carries `source` (free text or URL), `verified_at` (date), and `upda
 - For UI development, use fixtures with obviously fake names ("Sample Co 1", "Sample Person A") and an `is_sample` flag. When any sample row is loaded, show a banner saying the page contains sample data.
 - Imports take Excel workbooks, CSV, rows pasted from a spreadsheet, and JSON (briefs are JSON only). Columns are matched by name and common alternatives, the owner can change any match, and the app remembers the matching per spreadsheet layout. Validate on import, preview the changes, and report every rejected row with the reason before anything is saved.
 - Deals match on op ID, then on company and deal name. Companies match by name with case, punctuation, and endings such as Inc or LLC ignored, and a name with no match becomes a new company that the preview lists. Contacts match by email or name at their company. An import never blanks a stored field.
-- A company without lat and lng pins at its state's or province's center with a "location unverified" marker.
+- A company without lat and lng pins at its HQ city when the towns bundled with the map include it, otherwise at its state's or province's center, with a "location unverified" marker either way. (Claude changed this on 2026-10-08 so imported deals spread across their towns instead of stacking at the state center; the owner can reverse it.)
 - Every brief item shows its source link and date. Items marked inferred look visibly different from confirmed ones.
 - Territory members marked unconfirmed get a subtle hatch on the map until I confirm them in the editor.
 

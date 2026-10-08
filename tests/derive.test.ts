@@ -12,6 +12,7 @@ import {
   money,
   moneyShort,
   NO_FILTERS,
+  activeFilterCount,
   orgTree,
   ownerName,
   search,
@@ -85,6 +86,12 @@ describe('map pins and filters', () => {
     expect(filterCompanies(d, index, config, { ...NO_FILTERS, tierFit: 'enterprise' }).map((c) => c.id)).toEqual(['co-2']);
     expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'yes' }).map((c) => c.id)).toEqual(['co-1']);
     expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'no' }).map((c) => c.id)).toEqual(['co-2', 'co-3']);
+  });
+
+  it('keeps only companies with enough open pipeline when a deal size is chosen', () => {
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'yes', minPipeline: 100_000 }).map((c) => c.id)).toEqual(['co-1']);
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'yes', minPipeline: 250_000 })).toEqual([]);
+    expect(activeFilterCount({ ...NO_FILTERS, minPipeline: 50_000 })).toBe(1);
   });
 
   it('narrows by partner, as primary partner or as partner on a deal', () => {

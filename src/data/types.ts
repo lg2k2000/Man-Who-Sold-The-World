@@ -6,16 +6,7 @@
 // and which HPE people cover which company.
 
 export const TERRITORY_TEAM_ROLES = ['morpheus', 'opsramp'] as const;
-export const ACCOUNT_COVERAGE_ROLES = [
-  'eam',
-  'storage',
-  'compute',
-  'networking',
-  'greenlake',
-  'zerto',
-  'sled',
-  'other',
-] as const;
+export const ACCOUNT_COVERAGE_ROLES = ['eam', 'storage', 'compute', 'networking', 'greenlake', 'zerto', 'sled', 'other'] as const;
 export const ROLES = [...TERRITORY_TEAM_ROLES, ...ACCOUNT_COVERAGE_ROLES] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -60,14 +51,7 @@ export const COMPANY_TYPE_LABELS: Record<CompanyType, string> = {
 export const CONFIDENCES = ['confirmed', 'reported', 'inferred'] as const;
 export type Confidence = (typeof CONFIDENCES)[number];
 
-export const DECISION_ROLES = [
-  'economic buyer',
-  'technical decision maker',
-  'champion',
-  'influencer',
-  'blocker',
-  'unknown',
-] as const;
+export const DECISION_ROLES = ['economic buyer', 'technical decision maker', 'champion', 'influencer', 'blocker', 'unknown'] as const;
 export type DecisionRole = (typeof DECISION_ROLES)[number];
 
 export interface Provenance {

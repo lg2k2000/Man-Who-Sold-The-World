@@ -354,6 +354,7 @@ sets.m7 = [
     ],
   },
   { name: '14-team', query: '?sample=1#team', steps: [] },
+  { name: '15-big-deals', query: '?sample=1', steps: [choose('Deals', '100000')] },
 ];
 const shots = sets[milestone] ?? sets.m2;
 

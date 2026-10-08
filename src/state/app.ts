@@ -6,6 +6,7 @@ import { committedConfig } from '../config';
 import { buildRegionIndex, territoryConfigSchema, type RegionAssignment, type TerritoryConfig } from '../config/territories';
 import { configHash } from '../config/editor';
 import { DEFAULT_LAYERS, readLayers, type LayerSettings } from '../map/detail';
+import { applySnapshot, markSnapshotApplied, shouldAutoApply, type Snapshot } from '../import/snapshot';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
 export type View = 'map' | 'deals' | 'companies' | 'contacts' | 'team' | 'data';
@@ -116,6 +117,8 @@ interface AppState {
   store: DataStore | null;
   /** Set when storage failed; the app keeps working in memory and says so. */
   storeProblem: StoreProblem | null;
+  /** Data published next to this copy of the app, if any, and what became of it. */
+  snapshot: { snap: Snapshot; loadedNow: boolean } | null;
 
   setHomeTerritory(id: string | null): void;
   setTheme(theme: ThemeSetting): void;
@@ -143,6 +146,12 @@ interface AppState {
   editDeal(id: string | null): void;
 
   attachStore(store: DataStore, problem?: StoreProblem | null): Promise<void>;
+  /**
+   * Takes the snapshot published next to the app. A browser that never loaded
+   * it and holds no real rows loads it now; any other browser keeps its data,
+   * and the Data page offers the snapshot.
+   */
+  offerSnapshot(snap: Snapshot): Promise<void>;
   /** Saves one table and refreshes everything derived from the data. */
   saveTable<T extends TableName>(table: T, rows: Dataset[T]): Promise<void>;
   saveAll(data: Dataset): Promise<void>;
@@ -175,6 +184,7 @@ export const useApp = create<AppState>((set, get) => ({
   ...withData(emptyDataset()),
   store: null,
   storeProblem: null,
+  snapshot: null,
 
   setHomeTerritory(id) {
     const settings = { ...get().settings, homeTerritoryId: id };
@@ -313,6 +323,18 @@ export const useApp = create<AppState>((set, get) => ({
   async attachStore(store, problem = null) {
     const data = await store.load();
     set({ store, storeProblem: problem, ...withData(data) });
+  },
+  async offerSnapshot(snap) {
+    if (!shouldAutoApply(get().data, snap)) {
+      set({ snapshot: { snap, loadedNow: false } });
+      return;
+    }
+    const d = new Date();
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const { data } = applySnapshot(get().data, snap, get().config, today);
+    await get().saveAll(data);
+    markSnapshotApplied(snap.id);
+    set({ snapshot: { snap, loadedNow: true } });
   },
   async saveTable(table, rows) {
     const store = get().store;

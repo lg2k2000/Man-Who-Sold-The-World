@@ -84,7 +84,8 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     {
       name: 'lat',
       required: false,
-      description: 'Headquarters latitude. Leave lat and lng empty to pin at the state center as "location unverified".',
+      description:
+        'Headquarters latitude. Leave lat and lng empty to pin at the HQ city, or at the state center when the city is unknown, as "location unverified".',
       aliases: ['latitude'],
     },
     {

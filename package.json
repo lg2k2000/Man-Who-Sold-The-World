@@ -15,7 +15,8 @@
     "screenshots": "node scripts/screenshots.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.mjs\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.mjs\"",
-    "a11y": "node scripts/a11y.mjs"
+    "a11y": "node scripts/a11y.mjs",
+    "snapshot": "node scripts/make-snapshot.mjs"
   },
   "dependencies": {
     "d3-geo": "3.1.1",

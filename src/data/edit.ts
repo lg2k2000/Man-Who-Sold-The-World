@@ -42,7 +42,9 @@ function parse<T extends 'people' | 'companies' | 'contacts' | 'deals'>(table: T
 }
 
 function replaceOrAdd<T>(rows: T[], key: (r: T) => string, originalKey: string | null, record: T): T[] {
-  return originalKey !== null && rows.some((r) => key(r) === originalKey) ? rows.map((r) => (key(r) === originalKey ? record : r)) : [...rows, record];
+  return originalKey !== null && rows.some((r) => key(r) === originalKey)
+    ? rows.map((r) => (key(r) === originalKey ? record : r))
+    : [...rows, record];
 }
 
 /**
@@ -56,7 +58,12 @@ export function savePerson(data: Dataset, originalId: string | null, raw: Raw, c
   if (Object.keys(errors).length) return { ok: false, errors };
   if (!originalId && data.people.some((p) => p.id === record.id)) {
     const other = data.people.find((p) => p.id === record.id)!;
-    return { ok: false, errors: { [record.email && other.email === record.email ? 'email' : 'name']: `${other.name} is already in the HPE team; open them to edit` } };
+    return {
+      ok: false,
+      errors: {
+        [record.email && other.email === record.email ? 'email' : 'name']: `${other.name} is already in the HPE team; open them to edit`,
+      },
+    };
   }
   const sameEmail = record.email ? data.people.find((p) => p.email === record.email && p.id !== record.id) : undefined;
   if (sameEmail) return { ok: false, errors: { email: `${record.email} already belongs to ${sameEmail.name}` } };
@@ -178,7 +185,11 @@ export function deleteCompany(d: Dataset, id: string): Dataset {
     contacts: d.contacts.filter((c) => c.company_id !== id),
     deals: d.deals
       .filter((x) => x.company_id !== id)
-      .map((x) => ({ ...x, partner_id: x.partner_id === id ? null : x.partner_id, contact_ids: x.contact_ids.filter((c) => !gone.has(c)) })),
+      .map((x) => ({
+        ...x,
+        partner_id: x.partner_id === id ? null : x.partner_id,
+        contact_ids: x.contact_ids.filter((c) => !gone.has(c)),
+      })),
     coverage: d.coverage.filter((c) => c.company_id !== id),
     briefs: d.briefs.filter((b) => b.company_id !== id),
   };

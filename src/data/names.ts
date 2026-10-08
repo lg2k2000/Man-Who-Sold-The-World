@@ -3,10 +3,7 @@
 
 /** Lowercase with accents removed. */
 export function fold(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 const COMPANY_ENDINGS = new Set([
@@ -25,7 +22,7 @@ const COMPANY_ENDINGS = new Set([
   'pllc',
   'pc',
   'ulc',
-])
+]);
 
 /**
  * The form two company names share when they name the same company: case,

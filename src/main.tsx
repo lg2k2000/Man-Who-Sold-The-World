@@ -6,6 +6,7 @@ import { configProblems } from './config';
 import { MemoryStore } from './data/store';
 import { IndexedDbStore } from './data/idb';
 import { useApp } from './state/app';
+import { fetchSnapshot } from './import/snapshot';
 import type { Dataset } from './data/types';
 import './styles.css';
 
@@ -50,7 +51,13 @@ function stressCopies(list: Dataset['companies'], times: number): Dataset['compa
   return out;
 }
 
-chooseStore().then(({ store, problem }) => useApp.getState().attachStore(store, problem));
+chooseStore().then(async ({ store, problem }) => {
+  await useApp.getState().attachStore(store, problem);
+  // A copy of the app published with a snapshot opens with its data. Sample mode never loads one.
+  if (store instanceof MemoryStore && !problem) return;
+  const snap = await fetchSnapshot();
+  if (snap) await useApp.getState().offerSnapshot(snap);
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

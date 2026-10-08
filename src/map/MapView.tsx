@@ -7,12 +7,13 @@ import type { RegionAssignment, TerritoryConfig } from '../config/territories';
 import { HAWAII, mainProjection, type Boundaries } from './geo';
 import { DetailLabels, DetailUnder } from './DetailLayers';
 import type { Detail, LayerSettings } from './detail';
+import { cityKey, makeCityLocator, type CityLocator } from './locate';
 import { fitTransform, mainBounds, unionBounds, type Bounds } from './bounds';
 import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
-import { filterCompanies, hasOverlap, territoryCodes, type DataIndex } from '../data/derive';
+import { filterCompanies, hasOverlap, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
 import type { Company } from '../data/types';
 
 export interface MapInsets {
@@ -209,11 +210,14 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
           ? 'all'
           : 'counts';
 
+  // Places a company without coordinates at its HQ city once the town data has loaded.
+  const locate = useMemo(() => (detail ? makeCityLocator(detail.cities, boundaries.regions) : null), [detail, boundaries]);
+
   const pins = useMemo(() => {
     if (!geo || scope === 'counts' || scope === 'none') return [];
     const list = scope === 'state' ? filtered.filter((p) => p.state === selectedState) : filtered;
-    return placePins(list, geo, dataIndex);
-  }, [geo, scope, filtered, selectedState, dataIndex]);
+    return placePins(list, geo, dataIndex, locate);
+  }, [geo, scope, filtered, selectedState, dataIndex, locate]);
 
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
@@ -439,7 +443,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
-                    aria-label={`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? '. Location unverified' : ''}${p.overlap ? '. Covered by 3 or more coverage roles' : ''}${dataIndex.openDealCompanies.has(p.prospect.id) ? '. Open deal' : ''}.`}
+                    aria-label={pinLabel(p, dataIndex)}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
                     onKeyDown={(e) => onPinKey(e, p.prospect.id)}
@@ -450,9 +454,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                   >
                     {p.overlap && <circle className="pin-halo" r={8.5} />}
                     <circle className="pin-dot" r={selectedProspect === p.prospect.id ? 7.5 : 5.5} />
-                    <title>
-                      {`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? ' (location unverified)' : ''}${p.overlap ? ' (3+ coverage roles)' : ''}`}
-                    </title>
+                    <title>{pinLabel(p, dataIndex)}</title>
                   </g>
                 </g>
               ))}
@@ -538,6 +540,17 @@ const Regions = memo(function Regions({
   );
 });
 
+/** What a pin says on hover and to a screen reader: the company, where it is, and who owns its open deals. */
+function pinLabel(p: PlacedPin, index: DataIndex): string {
+  const where = [p.prospect.hq_city, p.unverified ? 'location unverified' : ''].filter(Boolean).join(', ');
+  const deals = openDealSummary(index, p.prospect.id);
+  return (
+    [`${p.prospect.name}${where ? ` (${where})` : ''}`, p.overlap ? 'Covered by 3 or more coverage roles' : '', deals]
+      .filter(Boolean)
+      .join('. ') + '.'
+  );
+}
+
 interface PlacedPin {
   prospect: Company;
   x: number;
@@ -547,8 +560,9 @@ interface PlacedPin {
 }
 
 /**
- * Projects each company to its HQ. A company without coordinates sits at
- * its state's center, spread on a small spiral so several stay clickable.
+ * Projects each company to its HQ. A company without coordinates sits at its
+ * HQ city when the bundled towns have it, otherwise at its state's center,
+ * spread on a small spiral so several in one place stay clickable.
  */
 function placePins(
   list: Company[],
@@ -557,6 +571,7 @@ function placePins(
     byCode: Map<string, { center: [number, number] }>;
   },
   index: DataIndex,
+  locate: CityLocator | null,
 ): PlacedPin[] {
   const unverifiedSeen = new Map<string, number>();
   const out: PlacedPin[] = [];
@@ -569,10 +584,12 @@ function placePins(
     }
     // Only companies with a state reach here (see isPinned).
     const state = p.state!;
-    const center = geo.byCode.get(state)?.center;
+    const town = p.hq_city && locate ? locate(p.hq_city, state) : null;
+    const center = town ? geo.projection(town) : geo.byCode.get(state)?.center;
     if (!center) continue;
-    const n = unverifiedSeen.get(state) ?? 0;
-    unverifiedSeen.set(state, n + 1);
+    const spot = town ? `${state} ${cityKey(p.hq_city)}` : state;
+    const n = unverifiedSeen.get(spot) ?? 0;
+    unverifiedSeen.set(spot, n + 1);
     const angle = n * 2.4;
     const radius = n === 0 ? 0 : 1.2 * Math.sqrt(n);
     out.push({

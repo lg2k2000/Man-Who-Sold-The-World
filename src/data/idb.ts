@@ -106,7 +106,8 @@ export async function requestPersistence(): Promise<boolean> {
 /** Turns a storage failure into a sentence the owner can act on. */
 export function describeStorageError(e: unknown): string {
   const name = e instanceof DOMException || e instanceof Error ? e.name : '';
-  if (name === 'QuotaExceededError') return 'The browser is out of storage space for this site. Delete some data or export a backup and clear old rows.';
+  if (name === 'QuotaExceededError')
+    return 'The browser is out of storage space for this site. Delete some data or export a backup and clear old rows.';
   if (name === 'InvalidStateError' || name === 'UnknownError') return 'The browser closed its database. Reload the page and try again.';
   if (name === 'SecurityError') return 'The browser does not allow this site to store data. Check its site data settings.';
   return e instanceof Error ? e.message : String(e);
