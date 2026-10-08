@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RegionAssignment, TerritoryConfig } from '../config/territories';
-import { territorySummary } from '../data/derive';
+import { moneyShort, territorySummary } from '../data/derive';
 import type { Person } from '../data/types';
 import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
@@ -58,12 +58,16 @@ export function TerritoryCard({ config, index, regionNames, stage }: Props) {
           </div>
           <dl className="tcard-stats">
             <div>
-              <dt>Prospects</dt>
-              <dd>{summary.prospects}</dd>
+              <dt>Companies</dt>
+              <dd>{summary.companies}</dd>
             </div>
             <div>
               <dt>Open deals</dt>
               <dd>{summary.openDeals}</dd>
+            </div>
+            <div>
+              <dt>Open pipeline</dt>
+              <dd>{moneyShort(summary.pipeline)}</dd>
             </div>
             <div>
               <dt>States and provinces</dt>
@@ -109,11 +113,11 @@ export function TerritoryCard({ config, index, regionNames, stage }: Props) {
               <p className="muted small">No partners imported for these states.</p>
             ) : (
               <ul className="plain">
-                {summary.topPartners.map(({ partner, prospects }) => (
+                {summary.topPartners.map(({ partner, companies }) => (
                   <li key={partner.id}>
                     {partner.name}{' '}
                     <span className="muted">
-                      {prospects} primary · VME {partner.has_done_vme}
+                      {companies} primary · VME {partner.has_done_vme}
                     </span>
                   </li>
                 ))}

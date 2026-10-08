@@ -8,7 +8,8 @@ import { configHash } from '../config/editor';
 import { DEFAULT_LAYERS, readLayers, type LayerSettings } from '../map/detail';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
-export type View = 'map' | 'data' | 'people' | 'partners';
+export type View = 'map' | 'deals' | 'companies' | 'contacts' | 'team' | 'data';
+export const VIEWS: View[] = ['map', 'deals', 'companies', 'contacts', 'team', 'data'];
 
 const SETTINGS_KEY = 'tc.settings.v1';
 const DRAFT_KEY = 'tc.territoryDraft.v1';
@@ -77,7 +78,9 @@ export type FrameTarget =
   | { kind: 'codes'; codes: string[] }
   | { kind: 'point'; code: string; lng: number | null; lat: number | null };
 
-export type Panel = { kind: 'prospect' | 'person' | 'partner'; id: string } | null;
+export type CompanyTab = 'Brief' | 'Contacts' | 'Coverage' | 'Deals';
+export type Panel = { kind: 'company'; id: string; tab?: CompanyTab } | { kind: 'person'; id: string } | null;
+export type EditTarget = { kind: 'person' | 'company' | 'contact' | 'deal'; id: string } | null;
 
 export interface StoreProblem {
   message: string;
@@ -104,8 +107,8 @@ interface AppState {
   frameRequest: number;
   filters: Filters;
   panel: Panel;
-  /** A person or partner to open in its edit form when its view shows. */
-  editRecord: { kind: 'person' | 'partner'; id: string } | null;
+  /** A record to open in its edit form when its view shows. */
+  editRecord: EditTarget;
 
   data: Dataset;
   index: DataIndex;
@@ -130,12 +133,14 @@ interface AppState {
   clearState(): void;
   setFilters(patch: Partial<Filters>): void;
   clearFilters(): void;
-  openProspect(id: string): void;
+  /** Shows a company on the map with its panel open; a partner shows the states it works in. */
+  openCompany(id: string, tab?: CompanyTab): void;
   openPerson(email: string): void;
-  openPartner(id: string): void;
   closePanel(): void;
   editPerson(email: string | null): void;
-  editPartner(id: string | null): void;
+  editCompany(id: string | null): void;
+  editContact(id: string | null): void;
+  editDeal(id: string | null): void;
 
   attachStore(store: DataStore, problem?: StoreProblem | null): Promise<void>;
   /** Saves one table and refreshes everything derived from the data. */
@@ -246,18 +251,32 @@ export const useApp = create<AppState>((set, get) => ({
   clearFilters() {
     set((s) => ({ filters: { ...NO_FILTERS, territoryId: s.filters.territoryId } }));
   },
-  openProspect(id) {
-    const p = get().index.prospectById.get(id);
-    if (!p) return;
-    const territoryId = get().regionIndex.get(p.state)?.territory.id ?? null;
+  openCompany(id, tab) {
+    const c = get().index.companyById.get(id);
+    if (!c) return;
+    if (c.type === 'partner' || !c.state) {
+      // A partner, or a company with no location, frames the states it works in, if any.
+      set((s) => ({
+        view: 'map',
+        panel: { kind: 'company', id, tab },
+        focusTerritoryId: null,
+        filters: { ...s.filters, territoryId: null },
+        selectedState: null,
+        highlightCodes: c.states.length ? c.states : null,
+        frame: c.states.length ? { kind: 'codes', codes: c.states } : s.frame,
+        frameRequest: s.frameRequest + (c.states.length ? 1 : 0),
+      }));
+      return;
+    }
+    const territoryId = get().regionIndex.get(c.state)?.territory.id ?? null;
     set((s) => ({
       view: 'map',
-      panel: { kind: 'prospect', id },
+      panel: { kind: 'company', id, tab },
       focusTerritoryId: territoryId,
       filters: { ...s.filters, territoryId },
-      selectedState: p.state,
+      selectedState: c.state,
       highlightCodes: null,
-      frame: { kind: 'point', code: p.state, lng: p.lng, lat: p.lat },
+      frame: { kind: 'point', code: c.state!, lng: c.lng, lat: c.lat },
       frameRequest: s.frameRequest + 1,
     }));
   },
@@ -275,28 +294,20 @@ export const useApp = create<AppState>((set, get) => ({
       frameRequest: s.frameRequest + (p.states.length ? 1 : 0),
     }));
   },
-  openPartner(id) {
-    const p = get().index.partnerById.get(id);
-    if (!p) return;
-    set((s) => ({
-      view: 'map',
-      panel: { kind: 'partner', id },
-      focusTerritoryId: null,
-      filters: { ...s.filters, territoryId: null },
-      selectedState: null,
-      highlightCodes: p.states,
-      frame: p.states.length ? { kind: 'codes', codes: p.states } : s.frame,
-      frameRequest: s.frameRequest + (p.states.length ? 1 : 0),
-    }));
-  },
   closePanel() {
     set({ panel: null, highlightCodes: null });
   },
   editPerson(email) {
-    set({ view: 'people', editRecord: email === null ? null : { kind: 'person', id: email } });
+    set({ view: 'team', editRecord: email === null ? null : { kind: 'person', id: email } });
   },
-  editPartner(id) {
-    set({ view: 'partners', editRecord: id === null ? null : { kind: 'partner', id } });
+  editCompany(id) {
+    set({ view: 'companies', editRecord: id === null ? null : { kind: 'company', id } });
+  },
+  editContact(id) {
+    set({ view: 'contacts', editRecord: id === null ? null : { kind: 'contact', id } });
+  },
+  editDeal(id) {
+    set({ view: 'deals', editRecord: id === null ? null : { kind: 'deal', id } });
   },
 
   async attachStore(store, problem = null) {

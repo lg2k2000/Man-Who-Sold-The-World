@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import rawConfig from '../config/territories.json';
 import { parseTerritoryConfig } from '../src/config/territories';
-import { deletePartner, deletePerson, partnerDeleteImpact, personDeleteImpact, savePartner, savePerson, sortRows } from '../src/data/edit';
+import {
+  companyDeleteImpact,
+  contactDeleteImpact,
+  deleteCompany,
+  deleteContact,
+  deleteDeal,
+  deletePerson,
+  personDeleteImpact,
+  saveCompany,
+  saveContact,
+  saveDeal,
+  savePerson,
+  sortRows,
+} from '../src/data/edit';
 import type { Dataset } from '../src/data/types';
 
 const config = parseTerritoryConfig(rawConfig);
-const ctx = { config, editor: 'Sample Editor' };
+const ctx = { config, editor: 'Sample Editor', today: '2026-10-08' };
 
 async function sample(): Promise<Dataset> {
   return structuredClone((await import('../fixtures/sample/dataset.json')).default as unknown as Dataset);
@@ -42,137 +55,182 @@ describe('saving a person', () => {
   });
 
   it('reports field errors and saves nothing', async () => {
-    const d = await sample();
-    const r = savePerson(d, null, personForm({ name: '', email: 'nope', role: [], states: 'Narnia', verified_at: '2026-13-01' }), ctx);
+    const r = savePerson(
+      await sample(),
+      null,
+      personForm({ name: '', email: 'nope', role: [], states: 'Narnia', verified_at: '2026-13-01' }),
+      ctx,
+    );
     expect(r.ok).toBe(false);
-    if (r.ok) return;
-    expect(Object.keys(r.errors).sort()).toEqual(['email', 'name', 'role', 'states', 'verified_at']);
+    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['email', 'name', 'role', 'states', 'verified_at']);
   });
 
-  it('refuses an email that belongs to someone else', async () => {
+  it('carries a changed email over to coverage, company owners, and deal owners', async () => {
     const d = await sample();
-    const other = d.people[1]!.email;
-    const r = savePerson(d, d.people[0]!.email, personForm({ email: other }), ctx);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors.email).toContain('already belongs to another person');
-  });
-
-  it('carries a changed email over to coverage, prospect owners, and deal owners', async () => {
-    const d = await sample();
-    const owner = d.prospects.find(
-      (p) => p.hpe_owner_email && d.deals.some((x) => x.hpe_owner_email === p.hpe_owner_email),
-    )!.hpe_owner_email!;
-    const before = personDeleteImpact(d, owner);
-    const person = d.people.find((p) => p.email === owner)!;
+    const owner = d.deals.find((x) => x.hpe_owner_email)!.hpe_owner_email!;
+    const p = d.people.find((x) => x.email === owner)!;
     const r = savePerson(
       d,
       owner,
-      personForm({ name: person.name, email: 'renamed@example.com', role: person.roles, states: person.states.join(';') }),
+      personForm({ name: p.name, email: 'moved@example.com', role: p.roles, states: p.states.join(';') }),
       ctx,
     );
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(personDeleteImpact(r.data, owner)).toEqual({ coverage: 0, prospects: 0, deals: 0 });
-    expect(personDeleteImpact(r.data, 'renamed@example.com')).toEqual(before);
+    expect(r.data.deals.some((x) => x.hpe_owner_email === owner)).toBe(false);
+    expect(r.data.deals.some((x) => x.hpe_owner_email === 'moved@example.com')).toBe(true);
+    expect(r.data.coverage.some((c) => c.person_email === owner)).toBe(false);
+    expect(r.data.companies.some((c) => c.hpe_owner_email === owner)).toBe(false);
     expect(r.record.is_sample).toBe(true);
   });
 });
 
 describe('deleting a person', () => {
-  it('removes coverage links and clears owner fields', async () => {
+  it('removes coverage links, clears company owners, and keeps the name on deals as text', async () => {
     const d = await sample();
-    const owner = d.prospects.find((p) => p.hpe_owner_email)!.hpe_owner_email!;
+    const owner = d.deals.find((x) => x.hpe_owner_email)!.hpe_owner_email!;
     const impact = personDeleteImpact(d, owner);
-    expect(impact.prospects).toBeGreaterThan(0);
+    expect(impact.deals).toBeGreaterThan(0);
     const next = deletePerson(d, owner);
-    expect(next.people.some((p) => p.email === owner)).toBe(false);
-    expect(next.coverage).toHaveLength(d.coverage.length - impact.coverage);
-    expect(next.prospects).toHaveLength(d.prospects.length);
-    expect(personDeleteImpact(next, owner)).toEqual({ coverage: 0, prospects: 0, deals: 0 });
+    const name = d.people.find((p) => p.email === owner)!.name;
+    expect(next.coverage.some((c) => c.person_email === owner)).toBe(false);
+    expect(next.deals.filter((x) => x.owner_name === name)).toHaveLength(impact.deals);
   });
 });
 
-describe('saving a partner', () => {
-  const partnerForm = (patch: Record<string, unknown> = {}) => ({
-    id: 'sample-partner-new',
-    name: 'Sample Partner New',
-    states: 'OR',
-    has_done_vme: 'yes',
-    has_done_morpheus_enterprise: 'unknown',
-    contacts: [{ name: 'Sample Contact', title: 'AE', email: 'C@Example.com' }],
-    notes: '',
-    source: 'phone call',
-    verified_at: '2026-10-08',
+describe('saving a company', () => {
+  const form = (patch: Record<string, unknown> = {}) => ({
+    name: 'Sample Co New',
+    type: 'prospect',
+    state: 'Oregon',
+    lat: '',
+    lng: '',
+    segment: '',
+    tier_fit: 'vme',
+    primary_partner: 'sample-partner-1',
+    hpe_owner: '',
     ...patch,
   });
 
-  it('adds a partner with contacts from the form', async () => {
-    const r = savePartner(await sample(), null, partnerForm(), ctx);
+  it('adds a company with an id made from its name', async () => {
+    const r = saveCompany(await sample(), null, form(), ctx);
     expect(r.ok).toBe(true);
     if (r.ok)
-      expect(r.record).toMatchObject({
-        states: ['US-OR'],
-        contacts: [{ email: 'c@example.com' }],
-        source: 'phone call',
-        verified_at: '2026-10-08',
-      });
+      expect(r.record).toMatchObject({ id: 'sample-co-new', state: 'US-OR', primary_partner_id: 'sample-partner-1', segment: null });
   });
 
-  it('rejects a contact with a bad email or no name', async () => {
-    const d = await sample();
-    const bad = savePartner(d, null, partnerForm({ contacts: [{ name: 'Sample Contact', title: '', email: 'not-email' }] }), ctx);
-    expect(bad.ok).toBe(false);
-    const noName = savePartner(d, null, partnerForm({ contacts: [{ name: '', title: 'AE', email: '' }] }), ctx);
-    expect(noName.ok).toBe(false);
-    if (!noName.ok) expect(noName.errors.contacts).toContain('has no name');
-  });
-
-  it('carries a changed id over to prospects and deals', async () => {
-    const d = await sample();
-    const used = d.deals.find((x) => x.partner_id)!.partner_id!;
-    const before = partnerDeleteImpact(d, used);
-    const partner = d.partners.find((p) => p.id === used)!;
-    const r = savePartner(
-      d,
-      used,
-      partnerForm({ id: 'sample-partner-renamed', name: partner.name, states: partner.states.join(';'), contacts: partner.contacts }),
-      ctx,
-    );
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(partnerDeleteImpact(r.data, used)).toEqual({ prospects: 0, deals: 0 });
-    expect(partnerDeleteImpact(r.data, 'sample-partner-renamed')).toEqual(before);
-  });
-
-  it('refuses an id that belongs to another partner', async () => {
-    const d = await sample();
-    const r = savePartner(d, d.partners[0]!.id, partnerForm({ id: d.partners[1]!.id }), ctx);
+  it('refuses a new company with the name of one already there', async () => {
+    const r = saveCompany(await sample(), null, form({ name: 'SAMPLE CO 1, Inc.' }), ctx);
     expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.name).toContain('already in Companies');
   });
 
-  it('deleting a partner clears it from prospects and deals', async () => {
+  it('keeps the id when the name changes, and refuses a partner that is not a company', async () => {
     const d = await sample();
-    const used = d.deals.find((x) => x.partner_id)!.partner_id!;
-    const next = deletePartner(d, used);
-    expect(next.partners).toHaveLength(d.partners.length - 1);
-    expect(partnerDeleteImpact(next, used)).toEqual({ prospects: 0, deals: 0 });
-    expect(next.deals).toHaveLength(d.deals.length);
+    const renamed = saveCompany(d, 'sample-co-1', form({ name: 'Renamed Co' }), ctx);
+    expect(renamed.ok && renamed.record.id).toBe('sample-co-1');
+    const bad = saveCompany(d, 'sample-co-1', form({ primary_partner: 'no-such-partner' }), ctx);
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.errors.primary_partner).toContain('not a known company');
   });
 });
 
-describe('sorting tables', () => {
-  const rows = [{ v: 'Sample Co 10' }, { v: 'sample co 2' }, { v: '' }, { v: 'Sample Co 1' }];
+describe('deleting a company', () => {
+  it('deletes its contacts, deals, coverage, and brief, and clears it as a partner', async () => {
+    const d = await sample();
+    const target = d.briefs[0]!.company_id;
+    const impact = companyDeleteImpact(d, target);
+    expect(impact.contacts).toBeGreaterThan(0);
+    const next = deleteCompany(d, target);
+    expect(next.contacts.some((c) => c.company_id === target)).toBe(false);
+    expect(next.briefs.some((b) => b.company_id === target)).toBe(false);
+    expect(next.companies).toHaveLength(d.companies.length - 1);
 
-  it('sorts text naturally and ignores case', () => {
-    expect(sortRows(rows, (r) => r.v, 'asc').map((r) => r.v)).toEqual(['Sample Co 1', 'sample co 2', 'Sample Co 10', '']);
+    const partnerId = d.deals.find((x) => x.partner_id)!.partner_id!;
+    const afterPartner = deleteCompany(d, partnerId);
+    expect(afterPartner.deals.some((x) => x.partner_id === partnerId)).toBe(false);
+    expect(afterPartner.companies.some((c) => c.primary_partner_id === partnerId)).toBe(false);
+    expect(afterPartner.contacts.some((c) => c.company_id === partnerId)).toBe(false);
+  });
+});
+
+describe('contacts', () => {
+  it('adds a contact at a company and refuses a duplicate name there', async () => {
+    const d = await sample();
+    const form = {
+      company: 'sample-co-2',
+      name: 'Sample Contact New',
+      title: 'CIO',
+      email: 'NEW@example.com',
+      role_in_decision: 'champion',
+    };
+    const r = saveContact(d, null, form, ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.record).toMatchObject({ id: 'sample-co-2-sample-contact-new', email: 'new@example.com', company_id: 'sample-co-2' });
+    const again = saveContact(r.data, null, form, ctx);
+    expect(again.ok).toBe(false);
   });
 
-  it('keeps empty values last when descending too', () => {
-    expect(sortRows(rows, (r) => r.v, 'desc').map((r) => r.v)).toEqual(['Sample Co 10', 'sample co 2', 'Sample Co 1', '']);
+  it('moves reports to the top of the org chart and off deals when a contact is deleted', async () => {
+    const d = await sample();
+    const boss = d.contacts.find((c) => d.contacts.some((x) => x.reports_to === c.id) && d.deals.some((x) => x.contact_ids.includes(c.id)));
+    if (!boss) throw new Error('sample data has no contact who is both a manager and on a deal');
+    const impact = contactDeleteImpact(d, boss.id);
+    expect(impact.reports).toBeGreaterThan(0);
+    const next = deleteContact(d, boss.id);
+    expect(next.contacts.some((c) => c.reports_to === boss.id)).toBe(false);
+    expect(next.deals.some((x) => x.contact_ids.includes(boss.id))).toBe(false);
+  });
+});
+
+describe('deals', () => {
+  const form = (patch: Record<string, unknown> = {}) => ({
+    company: 'sample-co-3',
+    name: 'New pilot',
+    op_id: '',
+    stage: 'Qualify',
+    amount: '$75,000',
+    close_date: '2027-03-31',
+    hpe_owner: '',
+    partner: '',
+    contacts: [],
+    as_of: '2026-10-08',
+    ...patch,
   });
 
-  it('sorts numbers as numbers', () => {
-    const n = [{ v: 10 }, { v: 9 }, { v: null }, { v: 100 }];
-    expect(sortRows(n, (r) => r.v, 'asc').map((r) => r.v)).toEqual([9, 10, 100, null]);
+  it('adds a deal without an op ID, keyed on company and name', async () => {
+    const r = saveDeal(await sample(), null, form(), ctx);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.record).toMatchObject({ id: 'sample-co-3--new-pilot', op_id: null, amount: 75000 });
+  });
+
+  it('refuses an op ID another deal has, and keeps an unknown owner as text', async () => {
+    const d = await sample();
+    const taken = d.deals.find((x) => x.op_id)!.op_id!;
+    const dup = saveDeal(d, null, form({ op_id: taken }), ctx);
+    expect(dup.ok).toBe(false);
+    const named = saveDeal(d, null, form({ hpe_owner: 'Sample Person Nobody' }), ctx);
+    expect(named.ok && named.record.owner_name).toBe('Sample Person Nobody');
+  });
+
+  it('edits a deal in place and deletes it', async () => {
+    const d = await sample();
+    const target = d.deals[0]!;
+    const r = saveDeal(d, target.id, form({ company: target.company_id, stage: 'Commit', op_id: target.op_id ?? '' }), ctx);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.data.deals).toHaveLength(d.deals.length);
+    expect(r.data.deals.find((x) => x.id === target.id)!.stage).toBe('Commit');
+    expect(deleteDeal(r.data, target.id).deals).toHaveLength(d.deals.length - 1);
+  });
+});
+
+describe('sorting', () => {
+  it('sorts naturally with empty values last both ways', () => {
+    const rows = ['Co 10', '', 'Co 2', 'co 1'];
+    expect(sortRows(rows, (r) => r, 'asc')).toEqual(['co 1', 'Co 2', 'Co 10', '']);
+    expect(sortRows(rows, (r) => r, 'desc')).toEqual(['Co 10', 'Co 2', 'co 1', '']);
+    expect(sortRows([3, null, 1] as (number | null)[], (r) => r, 'asc')).toEqual([1, 3, null]);
   });
 });

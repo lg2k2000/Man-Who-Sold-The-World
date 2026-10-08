@@ -7,7 +7,7 @@ import { SortableTable, type Column } from './SortableTable';
 import { Drawer, Field, StatesPreview, statesText, today } from './forms';
 import { askConfirm } from './dialogs';
 
-export function PeopleView({ regionNames }: { regionNames: Map<string, string> }) {
+export function TeamView({ regionNames }: { regionNames: Map<string, string> }) {
   const data = useApp((s) => s.data);
   const index = useApp((s) => s.index);
   const config = useApp((s) => s.config);
@@ -93,10 +93,10 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
         <div className="page-inner wide">
           <header className="page-head row">
             <div>
-              <h2>People</h2>
+              <h2>HPE team</h2>
               <p className="muted">
                 {data.people.length === 0
-                  ? 'No HPE people imported yet. Import a people CSV in Data, or add someone here.'
+                  ? 'Nobody from HPE imported yet. Import a team spreadsheet in Data, or add someone here.'
                   : `${rows.length === data.people.length ? data.people.length : `${rows.length} of ${data.people.length}`} HPE people. Click a row to edit.`}
               </p>
             </div>
@@ -200,7 +200,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
         source,
         verified_at: verified,
       },
-      { config, editor },
+      { config, editor, today: today() },
     );
     if (!result.ok) {
       setErrors(result.errors);
@@ -223,7 +223,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
     const impact = personDeleteImpact(data, person.email);
     const extra = [
       impact.coverage && `${impact.coverage} coverage link${impact.coverage > 1 ? 's' : ''}`,
-      impact.prospects && `owner on ${impact.prospects} prospect${impact.prospects > 1 ? 's' : ''}`,
+      impact.companies && `owner on ${impact.companies} compan${impact.companies > 1 ? 'ies' : 'y'}`,
       impact.deals && `owner on ${impact.deals} deal${impact.deals > 1 ? 's' : ''}`,
     ].filter(Boolean);
     const ok = await askConfirm({

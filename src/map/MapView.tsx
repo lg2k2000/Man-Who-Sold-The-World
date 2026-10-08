@@ -12,8 +12,8 @@ import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
-import { filterProspects, hasOverlap, territoryCodes, type DataIndex } from '../data/derive';
-import type { Prospect } from '../data/types';
+import { filterCompanies, hasOverlap, territoryCodes, type DataIndex } from '../data/derive';
+import type { Company } from '../data/types';
 
 export interface MapInsets {
   /** Space the legend covers on the left, kept clear when framing. */
@@ -60,7 +60,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const filters = useApp((s) => s.filters);
   const panel = useApp((s) => s.panel);
   const selectState = useApp((s) => s.selectState);
-  const openProspect = useApp((s) => s.openProspect);
+  const openCompany = useApp((s) => s.openCompany);
   const editing = useApp((s) => s.editingTerritories);
   const openEditor = useEditTarget((s) => s.open);
   const setHover = useHover((s) => s.set);
@@ -162,7 +162,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
       const region = geo.byCode.get(frame.code);
       if (region) fit([region.bounds]);
       if (frame.lng !== null && frame.lat !== null) {
-        // Keep the state's zoom but center the prospect in the clear area.
+        // Keep the state's zoom but center the company in the clear area.
         const p = geo.projection([frame.lng, frame.lat]);
         if (p) {
           const k = target.k;
@@ -195,7 +195,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   }, [settled, size]);
   const highlight = useMemo(() => new Set(highlightCodes ?? []), [highlightCodes]);
 
-  const filtered = useMemo(() => filterProspects(data, dataIndex, config, filters), [data, dataIndex, config, filters]);
+  const filtered = useMemo(() => filterCompanies(data, dataIndex, config, filters), [data, dataIndex, config, filters]);
 
   // Pins show when a state or territory is chosen or the viewer has zoomed in;
   // otherwise each state shows a count.
@@ -218,7 +218,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
     const n = new Map<string, number>();
-    for (const p of filtered) n.set(p.state, (n.get(p.state) ?? 0) + 1);
+    for (const p of filtered) n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
     return [...n].flatMap(([code, count]) => {
       const r = geo.byCode.get(code);
       return r ? [{ code, name: r.name, count, x: r.center[0], y: r.center[1] }] : [];
@@ -247,13 +247,13 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const regionLabels = useMemo(() => {
     const n = new Map<string, number>();
-    for (const p of filtered) n.set(p.state, (n.get(p.state) ?? 0) + 1);
+    for (const p of filtered) n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
     const labels = new Map<string, string>();
     for (const r of geo?.regions ?? []) {
       const a = index.get(r.code);
       const where = a ? `${a.territory.name}${a.confirmed ? '' : ', unconfirmed'}` : 'Unassigned';
       const count = n.get(r.code) ?? 0;
-      labels.set(r.code, `${r.name}. ${where}. ${count} prospect${count === 1 ? '' : 's'}.`);
+      labels.set(r.code, `${r.name}. ${where}. ${count} compan${count === 1 ? 'y' : 'ies'}.`);
     }
     return labels;
   }, [geo, index, filtered]);
@@ -306,7 +306,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     [regionOrder, focusRegionEl, onRegionSelect, setHover],
   );
 
-  const selectedProspect = panel?.kind === 'prospect' ? panel.id : null;
+  const selectedProspect = panel?.kind === 'company' ? panel.id : null;
   // The selected pin draws last so it sits on top.
   const orderedPins = selectedProspect
     ? [...pins.filter((p) => p.prospect.id !== selectedProspect), ...pins.filter((p) => p.prospect.id === selectedProspect)]
@@ -333,7 +333,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     else if (e.key === 'End') next = pinOrder.at(-1);
     else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      openProspect(id);
+      openCompany(id);
       return;
     } else return;
     e.preventDefault();
@@ -422,7 +422,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                   <g className="count-badge" onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}>
                     <circle r={c.count > 9 ? 12 : 10} />
                     <text dy="0.35em">{c.count}</text>
-                    <title>{`${c.name}: ${c.count} prospect${c.count === 1 ? '' : 's'}`}</title>
+                    <title>{`${c.name}: ${c.count} compan${c.count === 1 ? 'y' : 'ies'}`}</title>
                   </g>
                 </g>
               ))}
@@ -430,7 +430,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
             <g
               className="pins"
               role="group"
-              aria-label={`${pins.length} prospect pins. Use the arrow keys to move between them; Enter opens one.`}
+              aria-label={`${pins.length} company pins. Use the arrow keys to move between them; Enter opens one.`}
             >
               {orderedPins.map((p) => (
                 <g key={p.prospect.id} transform={`translate(${p.x},${p.y})`}>
@@ -439,13 +439,13 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
-                    aria-label={`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? '. Location unverified' : ''}${p.overlap ? '. Covered by 3 or more coverage roles' : ''}${dataIndex.openDealProspects.has(p.prospect.id) ? '. Open deal' : ''}.`}
+                    aria-label={`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? '. Location unverified' : ''}${p.overlap ? '. Covered by 3 or more coverage roles' : ''}${dataIndex.openDealCompanies.has(p.prospect.id) ? '. Open deal' : ''}.`}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
                     onKeyDown={(e) => onPinKey(e, p.prospect.id)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openProspect(p.prospect.id);
+                      openCompany(p.prospect.id);
                     }}
                   >
                     {p.overlap && <circle className="pin-halo" r={8.5} />}
@@ -539,7 +539,7 @@ const Regions = memo(function Regions({
 });
 
 interface PlacedPin {
-  prospect: Prospect;
+  prospect: Company;
   x: number;
   y: number;
   unverified: boolean;
@@ -547,11 +547,11 @@ interface PlacedPin {
 }
 
 /**
- * Projects each prospect to its HQ. A prospect without coordinates sits at
+ * Projects each company to its HQ. A company without coordinates sits at
  * its state's center, spread on a small spiral so several stay clickable.
  */
 function placePins(
-  list: Prospect[],
+  list: Company[],
   geo: {
     projection: (p: [number, number]) => [number, number] | null;
     byCode: Map<string, { center: [number, number] }>;
@@ -567,10 +567,12 @@ function placePins(
       if (xy) out.push({ prospect: p, x: xy[0], y: xy[1], unverified: false, overlap });
       continue;
     }
-    const center = geo.byCode.get(p.state)?.center;
+    // Only companies with a state reach here (see isPinned).
+    const state = p.state!;
+    const center = geo.byCode.get(state)?.center;
     if (!center) continue;
-    const n = unverifiedSeen.get(p.state) ?? 0;
-    unverifiedSeen.set(p.state, n + 1);
+    const n = unverifiedSeen.get(state) ?? 0;
+    unverifiedSeen.set(state, n + 1);
     const angle = n * 2.4;
     const radius = n === 0 ? 0 : 1.2 * Math.sqrt(n);
     out.push({

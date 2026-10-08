@@ -11,6 +11,7 @@
     "test": "vitest run",
     "boundaries": "node scripts/build-boundaries.mjs",
     "detail": "node scripts/build-detail.mjs",
+    "example-workbook": "node scripts/example-workbook.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.mjs\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"scripts/*.mjs\"",
@@ -25,6 +26,7 @@
     "papaparse": "5.7.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "read-excel-file": "9.3.10",
     "topojson-client": "3.1.0",
     "zod": "3.23.8",
     "zustand": "4.5.5"
@@ -46,6 +48,7 @@
     "@vitejs/plugin-react": "6.1.1",
     "all-the-cities": "3.1.0",
     "fake-indexeddb": "6.2.2",
+    "fflate": "0.8.3",
     "mapshaper": "0.7.66",
     "prettier": "3.6.2",
     "typescript": "5.9.3",

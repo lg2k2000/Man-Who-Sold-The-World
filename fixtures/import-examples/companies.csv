@@ -1,0 +1,6 @@
+name,type,id,hq_city,state,lat,lng,industry,description,segment,tier_fit,primary_partner,hpe_owner,states,has_done_vme,has_done_morpheus_enterprise,notes,source,verified_at,updated_by
+Sample Partner A,partner,sample-partner-a,Seattle,WA,,,,,,,,,WA;OR;ID,yes,unknown,,example file,,example
+Sample Partner B,partner,sample-partner-b,Vancouver,BC,,,,,,,,,WA;BC;AK,no,no,,example file,,example
+Sample Co A,prospect,sample-co-a,Seattle,WA,47.61,-122.33,Healthcare,Sample hospital group used as an example.,enterprise,vme,Sample Partner A,sample.d@example.com,,,,,example file,,example
+Sample Co B,customer,sample-co-b,Spokane,WA,47.66,-117.43,Manufacturing,Sample manufacturer used as an example.,mid-market,advanced,sample-partner-a,Sample Person D,,,,,example file,,example
+Sample Co C,prospect,sample-co-c,Portland,OR,,,Education,Sample school district with no coordinates yet.,sled,unknown,,,,,,,example file,,example

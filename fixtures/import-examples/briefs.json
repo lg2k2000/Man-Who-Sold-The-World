@@ -1,6 +1,6 @@
 [
   {
-    "prospect_id": "sample-co-a",
+    "company": "sample-co-a",
     "sections": {
       "what_they_do": [
         { "text": "Sample hospital group with four sites.", "source_url": "https://example.com/sample-co-a/about", "source_date": "2026-09-01", "confidence": "confirmed" }

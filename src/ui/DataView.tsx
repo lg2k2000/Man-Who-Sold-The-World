@@ -1,23 +1,23 @@
 import { useRef, useState } from 'react';
 import { TABLES, type Dataset, type TableName } from '../data/types';
-import { describeStorageError, requestPersistence } from '../data/idb';
-import { guessTable, importTable, type ImportReport } from '../import/importer';
+import { describeStorageError } from '../data/idb';
+import type { ImportReport } from '../import/importer';
 import { backupFileName, makeBackup, restoreBackup } from '../import/backup';
-import { COLUMNS, FILE_FORMAT, TABLE_LABELS } from '../import/tables';
+import { TABLE_LABELS } from '../import/tables';
 import { useApp, withoutSample } from '../state/app';
 import { askConfirm, showExport } from './dialogs';
+import { ImportPanel, ReportDetails } from './ImportPanel';
 
 const EMPTY_HINT: Record<TableName, string> = {
+  companies: 'Prospects, customers, and partners. A deal spreadsheet adds the companies it names.',
+  contacts: 'People at those companies, with titles and who reports to whom.',
+  deals: "Deals with stage, amount, and close date, such as your manager's pipeline sheet.",
   people: 'HPE people: territory teams and account coverage.',
-  coverage: 'Which person covers which prospect. Needs people and prospects first.',
-  partners: 'Channel partners, their states, and contacts.',
-  prospects: 'Companies to call, with HQ location, segment, and tier fit.',
-  deals: 'Open and closed deals by op_id. Needs prospects first.',
-  briefs: 'Research briefs, one per prospect, as JSON.',
-  stakeholders: 'People inside each prospect, as JSON.',
+  coverage: 'Which HPE person covers which company. Needs the HPE team and companies first.',
+  briefs: 'Research briefs, one per company, as JSON.',
 };
 
-/** Imports, the rejected-row report, sample data, and backups. */
+/** Imports, the import report, sample data, and backups. */
 export function DataView() {
   const data = useApp((s) => s.data);
   const config = useApp((s) => s.config);
@@ -27,12 +27,9 @@ export function DataView() {
   const saveAll = useApp((s) => s.saveAll);
   const storeProblem = useApp((s) => s.storeProblem);
 
-  const [pending, setPending] = useState<{ file: File; table: TableName }[]>([]);
-  const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reports, setReports] = useState<ImportReport[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const restoreRef = useRef<HTMLInputElement>(null);
 
   const run = async (fn: () => Promise<void>) => {
@@ -46,27 +43,6 @@ export function DataView() {
       setBusy(false);
     }
   };
-
-  const choose = (files: FileList | null) => {
-    setReports([]);
-    setPending(
-      [...(files ?? [])].map((file) => ({ file, table: guessTable(file.name) ?? (file.name.endsWith('.json') ? 'briefs' : 'people') })),
-    );
-    if (fileRef.current) fileRef.current.value = '';
-  };
-
-  const importPending = () =>
-    run(async () => {
-      const out: ImportReport[] = [];
-      for (const { file, table } of pending) {
-        const result = importTable(table, await file.text(), file.name, useApp.getState().data, config, { replace });
-        out.push(result.report);
-        if (result.rows) await saveTable(table, result.rows);
-      }
-      setReports(out);
-      setPending([]);
-      void requestPersistence();
-    });
 
   const loadSample = () =>
     run(async () => {
@@ -139,69 +115,8 @@ export function DataView() {
           {storeProblem && <p className="callout warn">{storeProblem.message}</p>}
         </header>
 
-        <section className="card">
-          <h3>Import a file</h3>
-          <p className="muted small">
-            Pick one or more files. The table is guessed from each file name; check it before importing. People and partners go first, then
-            prospects, then the rest.
-          </p>
-          <div className="import-row">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,.json,text/csv,application/json"
-              multiple
-              className="visually-hidden"
-              id="import-file"
-              onChange={(e) => choose(e.target.files)}
-              disabled={busy}
-            />
-            <label htmlFor="import-file" className="btn">
-              Choose files
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
-              Replace each table instead of merging by key
-            </label>
-          </div>
-          {pending.length > 0 && (
-            <div className="pending">
-              {pending.map((p, i) => (
-                <div key={i} className="pending-row">
-                  <span className="mono">{p.file.name}</span>
-                  <span className="muted">into</span>
-                  <select
-                    aria-label={`Table for ${p.file.name}`}
-                    value={p.table}
-                    onChange={(e) => setPending(pending.map((x, j) => (j === i ? { ...x, table: e.target.value as TableName } : x)))}
-                  >
-                    {TABLES.map((t) => (
-                      <option key={t} value={t}>
-                        {TABLE_LABELS[t]} ({FILE_FORMAT[t].toUpperCase()})
-                      </option>
-                    ))}
-                  </select>
-                  <span className="muted small">
-                    needs{' '}
-                    {COLUMNS[p.table]
-                      .filter((c) => c.required)
-                      .map((c) => c.name)
-                      .join(', ')}
-                  </span>
-                </div>
-              ))}
-              <div className="btn-row">
-                <button type="button" className="btn solid" onClick={importPending} disabled={busy}>
-                  Import {pending.length} file{pending.length > 1 ? 's' : ''}
-                </button>
-                <button type="button" className="btn" onClick={() => setPending([])} disabled={busy}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          {reports.length > 0 && <Reports reports={reports} onClose={() => setReports([])} />}
-        </section>
+        <ImportPanel busy={busy} onReports={(r) => r.length && setReports(r)} />
+        {reports.length > 0 && <Reports reports={reports} onClose={() => setReports([])} />}
 
         {message && (
           <p className="callout" role="status">
@@ -239,7 +154,7 @@ export function DataView() {
           <section className="card">
             <h3>Sample data</h3>
             <p className="muted small">
-              Fake people, partners, and companies for trying the app. A banner shows while any sample row is loaded.
+              Fake companies, contacts, deals, and HPE people for trying the app. A banner shows while any sample row is loaded.
             </p>
             <div className="btn-row">
               <button type="button" className="btn solid" onClick={loadSample} disabled={busy}>
@@ -288,86 +203,36 @@ function mergeSample(current: Dataset, sample: Dataset): Dataset {
 
 function Reports({ reports, onClose }: { reports: ImportReport[]; onClose(): void }) {
   return (
-    <div className="reports" aria-live="polite">
+    <section className="card reports" aria-live="polite">
+      <h3>Last import</h3>
       {reports.map((r, i) => (
-        <ReportView key={i} r={r} />
+        <article key={i} className={`report${r.fileErrors.length ? ' failed' : r.rejectedRows ? ' partial' : ' ok'}`}>
+          <h4>
+            {r.fileName} <span className="muted">into {TABLE_LABELS[r.table]}</span>
+          </h4>
+          {r.fileErrors.length ? (
+            <>
+              <p>Nothing was imported.</p>
+              <ul>
+                {r.fileErrors.map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>
+              {r.added} added, {r.updated} updated
+              {r.kept ? `, ${r.kept} kept as they were` : ''}
+              {r.removed ? `, ${r.removed} removed` : ''}, {r.rejectedRows} rejected
+              {r.warnings.length ? `, ${r.warnings.length} warning${r.warnings.length > 1 ? 's' : ''}` : ''}.
+            </p>
+          )}
+          <ReportDetails r={r} />
+        </article>
       ))}
       <button type="button" className="link" onClick={onClose}>
         Dismiss report
       </button>
-    </div>
-  );
-}
-
-function ReportView({ r }: { r: ImportReport }) {
-  const failed = r.fileErrors.length > 0;
-  const byRow = new Map<number, string[]>();
-  for (const issue of r.rejected) byRow.set(issue.row, [...(byRow.get(issue.row) ?? []), issue.reason]);
-  return (
-    <article className={`report${failed ? ' failed' : r.rejectedRows ? ' partial' : ' ok'}`}>
-      <h4>
-        {r.fileName} <span className="muted">into {TABLE_LABELS[r.table]}</span>
-      </h4>
-      {failed ? (
-        <>
-          <p>Nothing was imported.</p>
-          <ul>
-            {r.fileErrors.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p>
-          {r.added} added, {r.updated} updated
-          {r.kept ? `, ${r.kept} kept as they were` : ''}
-          {r.removed ? `, ${r.removed} removed` : ''}, {r.rejectedRows} rejected
-          {r.warnings.length ? `, ${r.warnings.length} warning${r.warnings.length > 1 ? 's' : ''}` : ''}.
-        </p>
-      )}
-      {byRow.size > 0 && (
-        <table className="issues">
-          <caption>Rejected rows</caption>
-          <thead>
-            <tr>
-              <th>Row</th>
-              <th>Reason</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...byRow].map(([row, reasons]) => (
-              <tr key={row}>
-                <td className="num">{row}</td>
-                <td>
-                  {reasons.map((x) => (
-                    <div key={x}>{x}</div>
-                  ))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {r.warnings.length > 0 && (
-        <table className="issues warn">
-          <caption>Imported with a warning</caption>
-          <thead>
-            <tr>
-              <th>Row</th>
-              <th>Warning</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.warnings.map((w, i) => (
-              <tr key={i}>
-                <td className="num">{w.row}</td>
-                <td>{w.reason}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {r.ignoredColumns.length > 0 && <p className="muted small">Ignored columns: {r.ignoredColumns.join(', ')}.</p>}
-    </article>
+    </section>
   );
 }

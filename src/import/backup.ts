@@ -2,15 +2,17 @@
 // keep a copy. Restoring runs every row through the same checks as an import.
 
 import type { TerritoryConfig } from '../config/territories';
-import { emptyDataset, TABLES, type Dataset, type TableName } from '../data/types';
-import { newReport, validateRows, type ImportReport } from './importer';
+import { migrateV1, type V1Dataset } from '../data/migrate';
+import { emptyDataset, type Dataset, type TableName } from '../data/types';
+import { newReport, runImport, type ImportReport } from './importer';
 import type { Raw } from './tables';
 
 export const BACKUP_FORMAT = 'territory-coverage-backup';
-export const BACKUP_VERSION = 1;
+/** Version 1 held prospects, partners, and stakeholders; version 2 is the CRM model. Both restore. */
+export const BACKUP_VERSION = 2;
 
 /** Tables restore in this order so every reference has something to point at. */
-const RESTORE_ORDER: TableName[] = ['people', 'partners', 'prospects', 'coverage', 'deals', 'briefs', 'stakeholders'];
+const RESTORE_ORDER: TableName[] = ['people', 'companies', 'contacts', 'deals', 'coverage', 'briefs'];
 
 export function makeBackup(data: Dataset, now = new Date()): string {
   return JSON.stringify({ format: BACKUP_FORMAT, version: BACKUP_VERSION, exported_at: now.toISOString(), data }, null, 2) + '\n';
@@ -37,33 +39,56 @@ export function restoreBackup(text: string, fileName: string, config: TerritoryC
   if (!o || o.format !== BACKUP_FORMAT || typeof o.data !== 'object' || o.data === null) {
     return { data: null, error: 'This is not a backup made by "Export everything".', reports: [] };
   }
-  if (o.version !== BACKUP_VERSION) {
-    return { data: null, error: `This backup is version ${String(o.version)}; this app reads version ${BACKUP_VERSION}.`, reports: [] };
+  if (o.version !== 1 && o.version !== BACKUP_VERSION) {
+    return {
+      data: null,
+      error: `This backup is version ${String(o.version)}; this app reads versions 1 and ${BACKUP_VERSION}.`,
+      reports: [],
+    };
   }
-  if (TABLES.some((t) => o.data![t] !== undefined && !Array.isArray(o.data![t]))) {
+  if (Object.values(o.data).some((t) => t !== undefined && !Array.isArray(t))) {
     return { data: null, error: 'The backup is damaged: a table is not a list.', reports: [] };
   }
+  const tables = (o.version === 1 ? migrateV1(o.data as V1Dataset) : o.data) as Partial<Record<TableName, unknown[]>>;
 
-  const data = emptyDataset();
+  let data = emptyDataset();
   const reports: ImportReport[] = [];
   for (const table of RESTORE_ORDER) {
-    const rows = ((o.data[table] as unknown[]) ?? []).map((r, i) => ({ row: i + 1, raw: toRaw(table, r) }));
+    let items = tables[table] ?? [];
+    // Partners first, so a company's primary partner is there when it is checked.
+    if (table === 'companies') items = [...items].sort((a, b) => Number(isPartner(b)) - Number(isPartner(a)));
+    const rows = items.map((r, i) => ({ row: i + 1, raw: toRaw(table, r) }));
     const report = newReport(table, fileName);
     if (!rows.length) {
       reports.push(report);
       continue;
     }
-    const result = validateRows(table, rows, report, data, config, { replace: true });
-    (data as Record<TableName, unknown>)[table] = result.rows ?? [];
+    const result = runImport(table, rows, report, data, config, { replace: true, create: false });
+    data = result.data ?? data;
     reports.push(result.report);
   }
   return { data, error: null, reports };
 }
 
-/** Backup rows use field names; the import parsers read column names. Only people differ. */
+function isPartner(r: unknown): boolean {
+  return !!r && typeof r === 'object' && (r as Raw).type === 'partner';
+}
+
+/** Backup rows use stored field names; the import parsers read column names. These differ. */
 function toRaw(table: TableName, row: unknown): Raw {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return { __not_object: true };
   const r = row as Raw;
-  if (table === 'people') return { ...r, role: r.roles };
-  return r;
+  switch (table) {
+    case 'people':
+      return { ...r, role: r.roles };
+    case 'companies':
+      return { ...r, primary_partner: r.primary_partner_id, hpe_owner: r.hpe_owner_email };
+    case 'contacts':
+      return { ...r, company: r.company_id };
+    case 'deals':
+      return { ...r, company: r.company_id, partner: r.partner_id, hpe_owner: r.hpe_owner_email || r.owner_name, contacts: r.contact_ids };
+    case 'coverage':
+    case 'briefs':
+      return { ...r, company: r.company_id };
+  }
 }

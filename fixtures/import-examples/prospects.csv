@@ -1,4 +1,0 @@
-id,name,hq_city,state,lat,lng,industry,description,segment,tier_fit,primary_partner_id,hpe_owner_email,notes,source,verified_at,updated_by
-sample-co-a,Sample Co A,Seattle,WA,47.61,-122.33,Healthcare,Sample hospital group used as an example.,enterprise,vme,sample-partner-a,sample.d@example.com,,example file,,example
-sample-co-b,Sample Co B,Spokane,WA,47.66,-117.43,Manufacturing,Sample manufacturer used as an example.,mid-market,advanced,sample-partner-a,sample.d@example.com,,example file,,example
-sample-co-c,Sample Co C,Portland,OR,,,Education,Sample school district with no coordinates yet.,sled,unknown,,,,example file,,example

@@ -2,344 +2,442 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import rawConfig from '../config/territories.json';
 import { parseTerritoryConfig } from '../src/config/territories';
-import { emptyDataset, type Dataset } from '../src/data/types';
-import { guessTable, importTable, normalizeHeader } from '../src/import/importer';
+import { emptyDataset, type Dataset, type TableName } from '../src/data/types';
+import {
+  applyMapping,
+  autoMap,
+  guessHeaderRow,
+  guessTable,
+  guessTableFromHeaders,
+  importSource,
+  importText,
+  layoutKey,
+  missingRequired,
+  readDelimited,
+  readWorkbook,
+  tabulate,
+} from '../src/import/importer';
+import * as f from '../src/import/fields';
 import { REGION_CODES } from '../src/import/regions';
+import { companyMatchKey } from '../src/data/names';
 import { DOCS_END, DOCS_START, renderImportDocs } from '../src/import/docs';
+import { writeXlsx } from '../scripts/lib/xlsx-writer.mjs';
 
 const config = parseTerritoryConfig(rawConfig);
+const TODAY = '2026-10-08';
 
-function run<T extends Parameters<typeof importTable>[0]>(table: T, text: string, current: Dataset = emptyDataset(), replace = false) {
-  return importTable(table, text, `${table}.test`, current, config, { replace });
+function run(table: TableName, text: string, current: Dataset = emptyDataset(), replace = false) {
+  return importText(table, text, `${table}.csv`, current, config, { replace, today: TODAY });
 }
 
 function reasons(r: ReturnType<typeof run>) {
   return r.report.rejected.map((i) => `${i.row} ${i.column}: ${i.reason}`);
 }
 
-/** A dataset with one person, one partner, and two prospects to point at. */
-function base(): Dataset {
-  const d = emptyDataset();
-  d.people = run('people', 'name,email,role\nSample Person A,a@example.com,eam\n').rows!;
-  d.partners = run('partners', 'id,name\nsample-partner-1,Sample Partner 1\n').rows!;
-  d.prospects = run(
-    'prospects',
-    'id,name,state,segment\nsample-co-1,Sample Co 1,WA,enterprise\nsample-co-2,Sample Co 2,BC,sled\n',
-    d,
-  ).rows!;
-  return d;
+function example(name: string) {
+  return readFileSync(new URL(`../fixtures/import-examples/${name}`, import.meta.url), 'utf8');
 }
 
-describe('headers and files', () => {
-  it('normalizes headers', () => {
-    expect(normalizeHeader('﻿ Person Email ')).toBe('person_email');
-    expect(normalizeHeader('Has-Done-VME')).toBe('has_done_vme');
+/** The example files imported in order, as the README describes. */
+function examples(): Dataset {
+  let d = emptyDataset();
+  for (const [table, file] of [
+    ['people', 'people.csv'],
+    ['companies', 'companies.csv'],
+    ['contacts', 'contacts.csv'],
+    ['deals', 'deals.csv'],
+    ['coverage', 'coverage.csv'],
+  ] as [TableName, string][]) {
+    const r = importText(table, example(file), file, d, config, { today: TODAY });
+    expect({ file, rejected: reasons(r) }).toEqual({ file, rejected: [] });
+    d = r.data!;
+  }
+  const briefs = importText('briefs', example('briefs.json'), 'briefs.json', d, config);
+  expect(briefs.report.rejected).toEqual([]);
+  return briefs.data!;
+}
+
+describe('field parsers', () => {
+  it('reads dates the ways spreadsheets write them', () => {
+    expect(f.date('2026-10-15')).toBe('2026-10-15');
+    expect(f.date('10/15/2026')).toBe('2026-10-15');
+    expect(f.date('10/15/26')).toBe('2026-10-15');
+    expect(f.date('15-Oct-2026')).toBe('2026-10-15');
+    expect(f.date('Oct 15, 2026')).toBe('2026-10-15');
+    expect(f.date('October 15 2026')).toBe('2026-10-15');
+    expect(f.date(new Date(Date.UTC(2026, 9, 15)))).toBe('2026-10-15');
+    expect(f.date('46310')).toBe('2026-10-15');
+    expect(() => f.date('2026-02-30')).toThrow(/not a real date/);
+    expect(() => f.date('13/45/2026')).toThrow(/not a real date/);
+    expect(() => f.date('soon')).toThrow(/not a date/);
   });
 
-  it('guesses the table from the file name', () => {
-    expect(guessTable('People FY27.csv')).toBe('people');
-    expect(guessTable('acme-stakeholders.json')).toBe('stakeholders');
-    expect(guessTable('deals_2026-10-01.csv')).toBe('deals');
-    expect(guessTable('notes.txt')).toBeNull();
+  it('reads dollar amounts with symbols, commas, and K or M', () => {
+    expect(f.amount('$1,250,000.00')).toBe(1250000);
+    expect(f.amount('1.25M')).toBe(1250000);
+    expect(f.amount('450k')).toBe(450000);
+    expect(f.amount('USD 900')).toBe(900);
+    expect(f.amount(1234.567)).toBe(1234.57);
+    expect(f.amount('')).toBeNull();
+    expect(() => f.amount('ten thousand')).toThrow(/not a dollar amount/);
+    expect(() => f.amount(-5)).toThrow(/negative/);
   });
 
-  it('refuses a file missing a required column and imports nothing', () => {
-    const r = run('people', 'name,role\nSample Person A,eam\n');
-    expect(r.rows).toBeNull();
-    expect(r.report.fileErrors[0]).toContain('no email column');
+  it('reads op IDs and states', () => {
+    expect(f.optionalOpId(' ope-0000000001 ')).toBe('OPE-0000000001');
+    expect(f.optionalOpId('')).toBeNull();
+    expect(() => f.opId('OPE-123')).toThrow(/ten digits/);
+    expect(f.region('Washington')).toBe('US-WA');
+    expect(f.region('british columbia')).toBe('CA-BC');
+    expect(f.region('wa')).toBe('US-WA');
+    expect(() => f.region('Atlantis')).toThrow(/not a US state/);
   });
+});
 
-  it('refuses a header with no rows', () => {
-    expect(run('people', 'name,email,role\n').report.fileErrors[0]).toContain('no data rows');
+describe('company name matching', () => {
+  it('ignores case, punctuation, "The", and company endings', () => {
+    expect(companyMatchKey('Acme Corp.')).toBe(companyMatchKey('ACME Corporation'));
+    expect(companyMatchKey('The Acme Company')).toBe(companyMatchKey('acme'));
+    expect(companyMatchKey('Smith & Sons, LLC')).toBe(companyMatchKey('Smith and Sons'));
+    expect(companyMatchKey('Acme Health')).not.toBe(companyMatchKey('Acme'));
+    expect(companyMatchKey('Co')).toBe('co');
   });
+});
 
-  it('lists columns it ignored', () => {
-    const r = run('people', 'name,email,role,favorite_color\nSample Person A,a@example.com,eam,blue\n');
-    expect(r.report.ignoredColumns).toEqual(['favorite_color']);
+describe('reading sources', () => {
+  it('reads rows pasted from Excel, tab separated', () => {
+    const src = readDelimited('Opportunity ID\tAccount Name\tStage\nOPE-0000000001\tSample Co 1\tQualify\n', 'pasted rows');
+    expect(src.kind).toBe('sheets');
+    const r = importSource('deals', src, emptyDataset(), config, { today: TODAY });
     expect(r.report.added).toBe(1);
+    expect(r.data!.companies.map((c) => c.name)).toEqual(['Sample Co 1']);
   });
 
-  it('refuses JSON that is not JSON', () => {
-    expect(run('briefs', '{oops').report.fileErrors[0]).toContain('not valid JSON');
-  });
-});
-
-describe('people', () => {
-  it('imports good rows with every column', () => {
-    const r = run(
-      'people',
-      [
-        'name,email,role,specialty,territories,states,notes,source,verified_at,updated_by',
-        'Sample Person A,A@Example.com,Morpheus specialist,,PacNorthwest;southwest,WA;US-OR;bc,hi,deck,2026-10-01,owner',
-        'Sample Person B,b@example.com,networking,Juniper,,ID,,,,',
-        'Sample Person C,c@example.com,sled; other,,,,,,,',
-      ].join('\n'),
-    );
-    expect(reasons(r)).toEqual([]);
-    const [a, b, c] = r.rows!;
-    expect(a).toMatchObject({
-      email: 'a@example.com',
-      roles: ['morpheus'],
-      territories: ['pacnorthwest', 'southwest'],
-      states: ['US-WA', 'US-OR', 'CA-BC'],
-      source: 'deck',
-      verified_at: '2026-10-01',
-      updated_by: 'owner',
-    });
-    expect(b).toMatchObject({ roles: ['networking'], specialty: 'juniper', source: 'import: people.test', updated_by: 'import' });
-    expect(c!.roles).toEqual(['sled', 'other']);
+  it('finds the header row under a report title', () => {
+    expect(guessHeaderRow([['Q3 pipeline'], [], ['Opportunity ID', 'Account', 'Stage'], ['OPE-0000000001', 'Co', 'Develop']])).toBe(3);
+    expect(
+      guessHeaderRow([
+        ['name', 'email'],
+        ['A', 'a@example.com'],
+      ]),
+    ).toBe(1);
   });
 
-  it('rejects bad rows with row numbers and reasons, and keeps the good ones', () => {
-    const r = run(
-      'people',
-      [
-        'name,email,role,territories,states,verified_at',
-        'Sample Person A,a@example.com,eam,,,',
-        ',not-an-email,wizard,Atlantis,ZZ,2026-02-30',
-      ].join('\n'),
-    );
-    expect(r.rows).toHaveLength(1);
-    expect(r.report.rejectedRows).toBe(1);
-    const why = reasons(r).join('\n');
-    expect(why).toContain('3 name: name is empty');
-    expect(why).toContain('3 email: email "not-an-email" is not an email address');
-    expect(why).toContain('3 role: role "wizard" is not a known role');
-    expect(why).toContain('3 territories: territories "Atlantis" is not a territory');
-    expect(why).toContain('3 states: states "ZZ" is not a US state or Canadian province code');
-    expect(why).toContain('3 verified_at: verified_at "2026-02-30" is not a real date');
+  it('guesses the table from file and sheet names, then from headers', () => {
+    expect(guessTable('HPE team FY27.xlsx')).toBe('people');
+    expect(guessTable('Q1 Pipeline.xlsx')).toBe('deals');
+    expect(guessTable('acme-stakeholders.json')).toBe('contacts');
+    expect(guessTable('partners.csv')).toBe('companies');
+    expect(guessTable('notes.txt')).toBeNull();
+    expect(guessTableFromHeaders(['Opportunity ID', 'Account Name', 'Amount'])).toBe('deals');
+    expect(guessTableFromHeaders(['Name', 'Title', 'Email', 'Company'])).toBe('contacts');
   });
 
-  it('rejects a duplicate email in the same file', () => {
-    const r = run('people', 'name,email,role\nA,a@example.com,eam\nA again,A@example.com,eam\n');
-    expect(reasons(r)).toEqual(['3 email: email a@example.com already appears on row 2 of this file']);
+  it('refuses a JSON file that is not a list', () => {
+    expect(importText('briefs', '{"x": 1}', 'b.json', emptyDataset(), config).report.fileErrors[0]).toContain('must hold a list');
+    expect(importText('briefs', '{', 'b.json', emptyDataset(), config).report.fileErrors[0]).toContain('not valid JSON');
   });
 
-  it('updates a person by email on re-import and keeps everyone else', () => {
-    const first = run('people', 'name,email,role\nA,a@example.com,eam\nB,b@example.com,storage\n');
-    const d = { ...emptyDataset(), people: first.rows! };
-    const second = run('people', 'name,email,role\nA renamed,a@example.com,eam\nC,c@example.com,zerto\n', d);
-    expect(second.report).toMatchObject({ added: 1, updated: 1, kept: 1, removed: 0 });
-    expect(second.rows!.map((p) => p.name)).toEqual(['A renamed', 'B', 'C']);
-  });
-
-  it('replaces the whole table when asked', () => {
-    const d = { ...emptyDataset(), people: run('people', 'name,email,role\nA,a@example.com,eam\nB,b@example.com,eam\n').rows! };
-    const r = run('people', 'name,email,role\nC,c@example.com,eam\n', d, true);
-    expect(r.report).toMatchObject({ added: 1, updated: 0, removed: 2 });
-    expect(r.rows!.map((p) => p.email)).toEqual(['c@example.com']);
+  it('keeps briefs to JSON', () => {
+    expect(run('briefs', 'company,sections\nx,y\n').report.fileErrors[0]).toContain('only as JSON');
   });
 });
 
-describe('partners', () => {
-  it('reads contacts and yes/no/unknown flags', () => {
-    const r = run(
-      'partners',
-      'id,name,states,has_done_vme,has_done_morpheus_enterprise,contacts\n' +
-        'Sample-Partner-1,Sample Partner 1,WA;OR,Yes,,"Sample Contact A | Account Executive, West | a@example.com; Sample Contact B | SE |"\n',
-    );
-    expect(reasons(r)).toEqual([]);
-    expect(r.rows![0]).toMatchObject({
-      id: 'sample-partner-1',
-      has_done_vme: 'yes',
-      has_done_morpheus_enterprise: 'unknown',
-      contacts: [
-        { name: 'Sample Contact A', title: 'Account Executive, West', email: 'a@example.com' },
-        { name: 'Sample Contact B', title: 'SE', email: '' },
+describe('column matching', () => {
+  const t = tabulate({
+    name: 'Pipeline',
+    rows: [
+      ['Opportunity', 'Account Name', 'Sales Stage', 'Total Value', 'Expected Close', 'Opportunity Owner', 'Reseller', 'Fiscal Period'],
+      ['OPE-0000000001', 'Sample Co 1', 'Qualify', 1000, '1/2/2027', 'Sample Person A', 'Sample Partner 1', 'Q1'],
+      ['OPE-0000000002', 'Sample Co 2', 'Develop', 2000, '1/3/2027', 'Sample Person A', '', 'Q1'],
+    ],
+  });
+
+  it('matches headers by alias, and op IDs by their values whatever the header says', () => {
+    expect(autoMap('deals', t)).toEqual(['op_id', 'company', 'stage', 'amount', 'close_date', 'hpe_owner', 'partner', null]);
+    expect(missingRequired('deals', autoMap('deals', t))).toEqual([]);
+  });
+
+  it('gives each table column to one source column only', () => {
+    const dup = tabulate({
+      name: 's',
+      rows: [
+        ['Account', 'Account Name', 'Stage'],
+        ['A', 'B', 'Qualify'],
       ],
     });
+    expect(autoMap('deals', dup)).toEqual(['company', null, 'stage']);
   });
 
-  it('rejects a bad id, flag, and contact', () => {
-    const r = run('partners', 'id,name,has_done_vme,contacts\nsample partner,Sample Partner,maybe,| Title | x@example.com\n');
-    const why = reasons(r).join('\n');
-    expect(why).toContain('id "sample partner" is not a valid id');
-    expect(why).toContain('has_done_vme "maybe" is not one of yes, no, unknown');
-    expect(why).toContain('has no name');
+  it('lists required columns nothing fills', () => {
+    expect(missingRequired('deals', [null, 'company', null])).toEqual(['stage']);
   });
-});
 
-describe('prospects', () => {
-  it('imports good rows and pins rows without coordinates as unverified', () => {
-    const d = base();
-    const r = run(
-      'prospects',
-      'id,name,hq_city,state,lat,lng,segment,tier_fit,primary_partner_id,hpe_owner_email\n' +
-        'sample-co-3,Sample Co 3,Seattle,WA,47.6,-122.3,enterprise,VME,sample-partner-1,a@example.com\n' +
-        'sample-co-4,Sample Co 4,Boise,ID,,,Mid Market,,,\n',
-      d,
+  it('keys saved matchings on the table and the header layout', () => {
+    expect(layoutKey('deals', ['Opportunity ID', 'Account'])).toBe('deals:opportunityid|account');
+    expect(layoutKey('deals', ['opportunity_id', 'ACCOUNT'])).toBe(layoutKey('deals', ['Opportunity ID', 'Account']));
+  });
+
+  it('applies a hand-made matching and reports skipped columns', () => {
+    const mapping = autoMap('deals', t);
+    const rows = applyMapping(t, mapping);
+    expect(rows[0]).toMatchObject({ row: 2, raw: { op_id: 'OPE-0000000001', company: 'Sample Co 1', amount: 1000 } });
+    const r = importSource(
+      'deals',
+      { kind: 'sheets', fileName: 'p.xlsx', sheets: [{ name: 'Pipeline', rows: [t.headers, ...t.rows.map((x) => x.cells)] }] },
+      emptyDataset(),
+      config,
+      { today: TODAY },
+      mapping,
     );
-    expect(reasons(r)).toEqual([]);
-    expect(r.report.warnings).toEqual([]);
-    const added = r.rows!.slice(-2);
-    expect(added[0]).toMatchObject({ lat: 47.6, lng: -122.3, tier_fit: 'vme' });
-    expect(added[1]).toMatchObject({ lat: null, lng: null, segment: 'mid-market', tier_fit: 'unknown' });
-  });
-
-  it('rejects half a coordinate, a bad state, and a bad segment', () => {
-    const r = run('prospects', 'id,name,state,lat,lng,segment\nsample-co-9,Sample Co 9,Cascadia,47.6,,huge\n');
-    const why = reasons(r).join('\n');
-    expect(why).toContain('lng: lat and lng go together');
-    expect(why).toContain('state "Cascadia" is not a US state or Canadian province code');
-    expect(why).toContain('segment "huge" is not one of enterprise, mid-market, sled');
-  });
-
-  it('warns, without rejecting, about a partner or owner not imported yet and coordinates off the map', () => {
-    const r = run(
-      'prospects',
-      'id,name,state,lat,lng,segment,primary_partner_id,hpe_owner_email\nsample-co-9,Sample Co 9,WA,47.6,122.3,sled,nobody-yet,x@example.com\n',
-    );
-    expect(r.report.rejected).toEqual([]);
-    expect(r.report.warnings.map((w) => w.column)).toEqual(['lat', 'primary_partner_id', 'hpe_owner_email']);
-  });
-});
-
-describe('coverage', () => {
-  it('links people to prospects that exist', () => {
-    const r = run('coverage', 'person_email,prospect_id\nA@example.com,sample-co-1\n', base());
-    expect(reasons(r)).toEqual([]);
-    expect(r.rows).toEqual([expect.objectContaining({ person_email: 'a@example.com', prospect_id: 'sample-co-1' })]);
-  });
-
-  it('rejects links to people or prospects not imported', () => {
-    const r = run('coverage', 'person_email,prospect_id\nghost@example.com,sample-co-404\n', base());
-    const why = reasons(r).join('\n');
-    expect(why).toContain('person_email ghost@example.com is not in People');
-    expect(why).toContain('prospect_id sample-co-404 is not in Prospects');
-  });
-
-  it('treats the same person and prospect twice as a duplicate', () => {
-    const r = run('coverage', 'person_email,prospect_id\na@example.com,sample-co-1\na@example.com,sample-co-1\n', base());
-    expect(r.report.rejectedRows).toBe(1);
+    expect(r.report.ignoredColumns).toEqual(['Fiscal Period']);
+    expect(r.report.added).toBe(2);
   });
 });
 
 describe('deals', () => {
-  const header = 'op_id,prospect_id,stage,close_date,hpe_owner_email,partner_id,as_of\n';
-
-  it('imports deals and matches them on op_id only', () => {
-    const d = base();
-    const first = run('deals', header + 'OPE-0000000001,sample-co-1,Develop,2027-03-01,a@example.com,sample-partner-1,2026-10-01\n', d);
-    expect(reasons(first)).toEqual([]);
-    d.deals = first.rows!;
-    // Same op_id, different prospect: the op_id decides, so this updates the deal.
-    const second = run('deals', header + 'ope-0000000001,sample-co-2,Commit,,,,2026-10-08\n', d);
-    expect(second.report).toMatchObject({ added: 0, updated: 1 });
-    expect(second.rows![0]).toMatchObject({ op_id: 'OPE-0000000001', prospect_id: 'sample-co-2', stage: 'Commit' });
-  });
-
-  it('never matches deals on company name', () => {
-    const d = base();
-    const r = run('deals', header + 'OPE-0000000002,Sample Co 1,Develop,,,,2026-10-01\n', d);
-    expect(r.rows).toEqual([]);
-    expect(reasons(r).join('\n')).toContain('prospect_id "sample co 1" is not a valid id');
-  });
-
-  it('checks the op_id format', () => {
-    const d = base();
-    const bad = ['OPE-123', 'OPE-00000000011', 'OP-0000000001', 'OPE-00000000A1', ''];
-    const r = run('deals', header + bad.map((op) => `${op},sample-co-1,Develop,,,,2026-10-01`).join('\n') + '\n', d);
-    expect(r.report.rejectedRows).toBe(5);
-    expect(r.report.rejected.every((i) => i.column === 'op_id')).toBe(true);
-  });
-
-  it('rejects a duplicate op_id in one file', () => {
-    const d = base();
+  it('adds the companies, partners, and contacts a deal sheet names, and keeps unknown owners as text', () => {
+    const d = run('people', 'name,email,role\nSample Person A,a@example.com,eam\n').data!;
     const r = run(
       'deals',
-      header + 'OPE-0000000003,sample-co-1,Develop,,,,2026-10-01\nOPE-0000000003,sample-co-2,Develop,,,,2026-10-01\n',
+      [
+        'op_id,name,company,stage,amount,close_date,hpe_owner,partner,contacts,state,city',
+        'OPE-0000000001,VME pilot,Sample Co 1,Qualify,"$250,000",1/15/2027,Sample Person A,Sample Partner 1,Sample Contact X,WA,Seattle',
+        'OPE-0000000002,DR site,sample co 1 inc,Develop,1.2M,,Sample Person Z,Sample Partner 1,,,',
+      ].join('\n'),
       d,
     );
-    expect(reasons(r)).toEqual(['3 op_id: op_id OPE-0000000003 already appears on row 2 of this file']);
-  });
-
-  it('requires a prospect that exists and an as_of date', () => {
-    const d = base();
-    const r = run('deals', header + 'OPE-0000000004,sample-co-404,Develop,,,,\n', d);
-    const why = reasons(r).join('\n');
-    expect(why).toContain('prospect_id sample-co-404 is not in Prospects');
-    expect(why).toContain('as_of is empty');
-  });
-});
-
-describe('briefs (JSON)', () => {
-  const item = (confidence: string) => ({
-    text: 'Runs a data center.',
-    source_url: 'https://example.com/a',
-    source_date: '2026-09-01',
-    confidence,
-  });
-
-  it('imports a list and fills missing sections with empty lists', () => {
-    const json = JSON.stringify([
-      { prospect_id: 'sample-co-1', sections: { what_they_do: [item('confirmed')], tech_stack: [item('inferred')] } },
-    ]);
-    const r = run('briefs', json, base());
     expect(reasons(r)).toEqual([]);
-    expect(r.rows![0]!.sections.what_they_do).toHaveLength(1);
-    expect(r.rows![0]!.sections.filings).toEqual([]);
-  });
-
-  it('accepts an object holding a briefs list', () => {
-    const json = JSON.stringify({ briefs: [{ prospect_id: 'sample-co-1', sections: {} }] });
-    expect(run('briefs', json, base()).report.added).toBe(1);
-  });
-
-  it('rejects a brief whose item has no source, bad date, or bad confidence', () => {
-    const json = JSON.stringify([
-      {
-        prospect_id: 'sample-co-1',
-        sections: { recent_it_news: [{ text: 'x', source_url: 'not a url', source_date: '2026-09-01', confidence: 'confirmed' }] },
-      },
-      { prospect_id: 'sample-co-2', sections: { filings: [{ ...item('confirmed'), source_date: 'last week' }] } },
-      { prospect_id: 'sample-co-1', sections: { filings: [item('rumored')] } },
+    const data = r.data!;
+    expect(data.companies.map((c) => [c.name, c.type, c.state, c.hq_city])).toEqual([
+      ['Sample Co 1', 'prospect', 'US-WA', 'Seattle'],
+      ['Sample Partner 1', 'partner', null, ''],
     ]);
-    const why = reasons(run('briefs', json, base()));
-    expect(why[0]).toContain('1 sections: sections .recent_it_news[1] "not a url" is not an http or https URL');
-    expect(why[1]).toContain('.filings[1] "last week" is not a date');
-    expect(why[2]).toContain('"rumored" is not one of confirmed, reported, inferred');
+    expect(data.contacts.map((c) => c.name)).toEqual(['Sample Contact X']);
+    const [a, b] = data.deals;
+    expect(a).toMatchObject({
+      id: 'OPE-0000000001',
+      amount: 250000,
+      close_date: '2027-01-15',
+      hpe_owner_email: 'a@example.com',
+      as_of: TODAY,
+    });
+    expect(a!.contact_ids).toEqual([data.contacts[0]!.id]);
+    expect(b).toMatchObject({ company_id: a!.company_id, amount: 1200000, hpe_owner_email: null, owner_name: 'Sample Person Z' });
+    expect(r.report.created.map((c) => c.name)).toEqual(['Sample Co 1 (prospect)', 'Sample Partner 1 (partner)', 'Sample Contact X']);
+    expect(r.report.matches).toEqual([{ from: 'sample co 1 inc', to: 'Sample Co 1' }]);
+    expect(r.report.warnings.map((w) => w.reason)).toEqual(['owner "Sample Person Z" is not in the HPE team; kept as text']);
   });
 
-  it('warns about an unknown section and skips it', () => {
-    const json = JSON.stringify([{ prospect_id: 'sample-co-1', sections: { gossip: [item('reported')] } }]);
-    const r = run('briefs', json, base());
+  it('updates a deal by op ID, and a deal without one by company and name', () => {
+    const first = run(
+      'deals',
+      'op_id,name,company,stage,amount\nOPE-0000000001,Pilot,Sample Co 1,Qualify,100\n,Refresh,Sample Co 1,Qualify,200\n',
+    );
+    expect(first.report.added).toBe(2);
+    const second = run(
+      'deals',
+      'op_id,name,company,stage\nOPE-0000000001,Pilot,Sample Co 1,Commit\nOPE-0000000009,Refresh,Sample Co 1,Develop\n',
+      first.data!,
+    );
+    expect(second.report).toMatchObject({ added: 0, updated: 2 });
+    const refresh = second.data!.deals.find((d) => d.name === 'Refresh')!;
+    expect(refresh).toMatchObject({ op_id: 'OPE-0000000009', stage: 'Develop', amount: 200 });
+    expect(second.data!.deals).toHaveLength(2);
+  });
+
+  it('never blanks a stored field with an empty cell or a missing column', () => {
+    const first = run('deals', 'op_id,name,company,stage,amount,next_step\nOPE-0000000001,Pilot,Sample Co 1,Qualify,100,Call them\n');
+    const second = run('deals', 'op_id,company,stage,amount\nOPE-0000000001,Sample Co 1,Commit,\n', first.data!);
+    expect(second.data!.deals[0]).toMatchObject({ name: 'Pilot', stage: 'Commit', amount: 100, next_step: 'Call them', as_of: TODAY });
+  });
+
+  it('rejects bad rows with every reason, and duplicates within the file', () => {
+    const r = run('deals', example('broken/deals.csv'));
+    expect(reasons(r)).toEqual([
+      '3 op_id: op_id "OPE-12345" is not OPE- followed by ten digits',
+      '4 amount: amount "ten thousand" is not a dollar amount',
+      '4 close_date: close_date "2027-31-01" is not a real date',
+      '5 : op ID OPE-0000000201 already appears on row 2',
+      '6 op_id: The row needs an op ID or a deal name, so a later import can find the deal again',
+    ]);
     expect(r.report.added).toBe(1);
-    expect(r.report.warnings[0]!.reason).toContain('section "gossip"');
+    // The rejected rows created nothing: only the accepted row's company and partner exist.
+    expect(r.data!.companies.map((c) => c.name)).toEqual(['Sample Co X', 'Sample Partner A']);
   });
 
-  it('rejects an item that is not an object and a brief with no prospect_id', () => {
-    const r = run('briefs', JSON.stringify(['nope', { sections: {} }]), base());
-    expect(reasons(r)).toEqual(['1 : This item is not an object.', '2 prospect_id: prospect_id is empty; it needs a prospect id']);
+  it('warns when the partner named is not a partner', () => {
+    const d = run('companies', 'name,type\nSample Co 9,customer\n').data!;
+    const r = run('deals', 'op_id,company,stage,partner\nOPE-0000000001,Sample Co 1,Qualify,Sample Co 9\n', d);
+    expect(r.report.warnings[0]!.reason).toBe('Sample Co 9 is listed as a customer, not a partner');
   });
 });
 
-describe('stakeholders (JSON)', () => {
-  it('imports a tree and flags a reports_to that points nowhere', () => {
-    const json = JSON.stringify([
-      { id: 'cio-1', prospect_id: 'sample-co-1', name: 'Sample Stakeholder A', title: 'CIO', role_in_decision: 'economic buyer' },
-      { id: 'vp-1', prospect_id: 'sample-co-1', name: 'Sample Stakeholder B', reports_to: 'cio-1', last_contact: '2026-09-30' },
-      { id: 'dir-1', prospect_id: 'sample-co-1', name: 'Sample Stakeholder C', reports_to: 'ghost' },
+describe('companies', () => {
+  it('matches existing companies by name, makes ids from names, and adds named partners', () => {
+    const first = run('companies', 'name,state\nSample Co 1,WA\n');
+    expect(first.data!.companies[0]!.id).toBe('sample-co-1');
+    const r = run(
+      'companies',
+      'name,type,industry,primary_partner\nSAMPLE CO 1 LLC,customer,Healthcare,Sample Partner 7\nSample Co 2,,,\n',
+      first.data!,
+    );
+    expect(r.report).toMatchObject({ added: 1, updated: 1 });
+    const co1 = r.data!.companies.find((c) => c.id === 'sample-co-1')!;
+    expect(co1).toMatchObject({
+      name: 'SAMPLE CO 1 LLC',
+      type: 'customer',
+      industry: 'Healthcare',
+      state: 'US-WA',
+      primary_partner_id: 'sample-partner-7',
+    });
+    expect(r.data!.companies.find((c) => c.id === 'sample-partner-7')!.type).toBe('partner');
+  });
+
+  it('takes a partner row over the placeholder an earlier row made for it', () => {
+    const r = run(
+      'companies',
+      'name,type,primary_partner,states\nSample Co 1,prospect,Sample Partner 1,\nSample Partner 1,partner,,WA;OR\n',
+    );
+    expect(r.data!.companies).toHaveLength(2);
+    expect(r.data!.companies.find((c) => c.type === 'partner')!.states).toEqual(['US-WA', 'US-OR']);
+    expect(r.report.created).toEqual([]);
+  });
+
+  it('rejects bad rows and reports every problem', () => {
+    const r = run('companies', example('broken/companies.csv'));
+    expect(reasons(r)).toEqual([
+      '3 id: id "sample co y" is not a valid id; use lowercase letters, digits, and hyphens',
+      '3 lng: lat and lng go together; give both or leave both empty',
+      '3 segment: segment "huge" is not one of enterprise, mid-market, sled',
+      '3 tier_fit: tier_fit "platinum" is not one of vme, advanced, enterprise, unknown',
+      '4 type: type "vendor" is not one of prospect, customer, partner, other',
+      '5 : company Sample Co X already appears on row 2',
     ]);
-    const r = run('stakeholders', json, base());
-    expect(reasons(r)).toEqual([]);
-    expect(r.rows!.map((s) => s.role_in_decision)).toEqual(['economic buyer', 'unknown', 'unknown']);
-    expect(r.report.warnings.map((w) => w.reason)).toEqual([expect.stringContaining('reports_to ghost is not a known stakeholder')]);
-  });
-
-  it('rejects a bad decision role and a prospect that does not exist', () => {
-    const json = JSON.stringify([{ id: 's-1', prospect_id: 'sample-co-404', name: 'Sample Stakeholder', role_in_decision: 'kingmaker' }]);
-    const why = reasons(run('stakeholders', json, base())).join('\n');
-    expect(why).toContain('"kingmaker" is not one of economic buyer');
-    expect(why).toContain('prospect_id sample-co-404 is not in Prospects');
+    expect(r.report.warnings.map((w) => w.reason)).toEqual(['sample.d@example.com is not in the HPE team yet']);
   });
 });
 
-describe('the sample fixtures', () => {
-  it('pass the same validation an import would apply', async () => {
+describe('contacts', () => {
+  it('builds the org chart from names at the same company', () => {
+    const d = examples();
+    const cio = d.contacts.find((c) => c.title === 'Chief Information Officer')!;
+    const infra = d.contacts.find((c) => c.name === 'Sample Stakeholder B')!;
+    expect(infra.reports_to).toBe(cio.id);
+    expect(d.contacts.find((c) => c.name === 'Sample Stakeholder C')!).toMatchObject({
+      reports_to: 'sample-co-a-infra',
+      last_contact: '2026-09-15',
+    });
+  });
+
+  it('matches a contact again by email or name instead of adding a second one', () => {
+    const first = run('contacts', 'name,company,email\nSample Contact A,Sample Co 1,a@example.com\n');
+    const again = run('contacts', 'name,company,email,title\nSample Contact A.,Sample Co 1,A@example.com,CIO\n', first.data!);
+    expect(again.report).toMatchObject({ added: 0, updated: 1 });
+    expect(again.data!.contacts).toHaveLength(1);
+  });
+
+  it('warns about a manager who is missing or at another company', () => {
+    const r = run('contacts', 'name,company,reports_to\nSample A,Sample Co 1,nobody-here\n');
+    expect(r.report.warnings[0]!.reason).toContain('is not a known contact');
+  });
+});
+
+describe('people and coverage', () => {
+  it('needs companies and people that exist', () => {
+    const d = run('people', 'name,email,role\nSample Person A,a@example.com,eam\n').data!;
+    const r = run('coverage', 'person_email,company\na@example.com,Sample Co 404\nb@example.com,Sample Co 404\n', d);
+    expect(reasons(r)).toEqual([
+      '2 company: company "Sample Co 404" is not in Companies; import companies first',
+      '3 company: company "Sample Co 404" is not in Companies; import companies first',
+      '3 person_email: person_email b@example.com is not in the HPE team; import the team first',
+    ]);
+  });
+});
+
+describe('the example files', () => {
+  it('import cleanly in order', () => {
+    const d = examples();
+    expect(d.companies).toHaveLength(5);
+    expect(d.contacts).toHaveLength(6);
+    expect(d.deals.map((x) => [x.op_id, x.amount])).toEqual([
+      ['OPE-0000000101', 450000],
+      ['OPE-0000000102', 1200000],
+      [null, 85000],
+    ]);
+    expect(d.coverage).toHaveLength(5);
+    expect(d.briefs).toHaveLength(1);
+  });
+
+  it('include a pipeline workbook laid out like a Salesforce export', async () => {
+    const bytes = readFileSync(new URL('../fixtures/import-examples/manager-pipeline.xlsx', import.meta.url));
+    const src = await readWorkbook(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), 'manager-pipeline.xlsx');
+    expect(src.kind).toBe('sheets');
+    const r = importSource('deals', src, examples(), config, { today: TODAY });
+    expect(reasons(r)).toEqual([
+      '11 op_id: op_id "OPE-12345" is not OPE- followed by ten digits',
+      '12 op_id: The row needs an op ID or a deal name, so a later import can find the deal again',
+    ]);
+    expect(r.report).toMatchObject({ added: 5, updated: 2 });
+    expect(r.report.ignoredColumns).toEqual(['Fiscal Period']);
+    expect(r.report.matches.map((m) => `${m.from} -> ${m.to}`)).toEqual([
+      'Sample Partner A, LLC -> Sample Partner A',
+      'SAMPLE CO B, INC. -> Sample Co B',
+    ]);
+    const q = r.data!.companies.find((c) => c.name === 'Sample Co Q')!;
+    expect(q).toMatchObject({ state: 'US-WA', hq_city: 'Tacoma', type: 'prospect' });
+    const a = r.data!.deals.find((d) => d.op_id === 'OPE-0000000101')!;
+    expect(a).toMatchObject({ stage: 'Propose', amount: 520000, close_date: '2027-01-30', next_step: 'Send the pricing proposal' });
+  });
+});
+
+describe('Excel workbooks', () => {
+  it('reads dates, numbers, every sheet, and true row numbers', async () => {
+    const bytes = writeXlsx([
+      {
+        name: 'Deals',
+        rows: [
+          ['Report'],
+          [],
+          ['Op ID', 'Account', 'Stage', 'Close'],
+          ['OPE-0000000001', 'Sample Co 1', 'Qualify', new Date(Date.UTC(2027, 0, 5))],
+          [],
+          ['bad', 'Sample Co 2', 'Qualify', 'later'],
+        ],
+      },
+      { name: 'Other', rows: [['x', 'y']] },
+    ]);
+    const src = await readWorkbook(bytes.buffer as ArrayBuffer, 'w.xlsx');
+    expect(src.kind === 'sheets' && src.sheets.map((s) => s.name)).toEqual(['Deals', 'Other']);
+    const r = importSource('deals', src, emptyDataset(), config, { today: TODAY });
+    expect(r.data!.deals[0]!.close_date).toBe('2027-01-05');
+    expect(r.report.rejected.map((i) => i.row)).toEqual([6, 6]);
+  });
+
+  it('says plainly when a file is not a workbook', async () => {
+    const src = await readWorkbook(new TextEncoder().encode('not a zip').buffer as ArrayBuffer, 'x.xlsx');
+    expect(src.kind).toBe('error');
+    expect(src.kind === 'error' && src.error).toContain('could not be read');
+  });
+});
+
+describe('replace', () => {
+  it('replaces the table and counts what it removed', () => {
+    const first = run('people', 'name,email,role\nA,a@example.com,eam\nB,b@example.com,eam\n');
+    const r = run('people', 'name,email,role\nA,a@example.com,storage\n', first.data!, true);
+    expect(r.report).toMatchObject({ added: 0, updated: 1, removed: 1 });
+    expect(r.data!.people).toHaveLength(1);
+  });
+});
+
+describe('sample data', () => {
+  it('uses only real region codes and fake names', async () => {
     const sample = (await import('../fixtures/sample/dataset.json')).default as unknown as Dataset;
-    expect(sample.deals.every((d) => /^OPE-\d{10}$/.test(d.op_id))).toBe(true);
-    expect(new Set(sample.deals.map((d) => d.op_id)).size).toBe(sample.deals.length);
-    expect(sample.prospects.every((p) => REGION_CODES.all.has(p.state))).toBe(true);
+    expect(sample.companies.filter((c) => c.state).every((c) => REGION_CODES.all.has(c.state!))).toBe(true);
+    expect(sample.companies.every((c) => /^Sample (Co|Partner) \d+$/.test(c.name))).toBe(true);
+    expect(sample.contacts.every((c) => c.name.startsWith('Sample ') && (!c.email || c.email.endsWith('@example.com')))).toBe(true);
+    expect(sample.contacts.every((c) => !c.phone || /555-01\d\d$/.test(c.phone))).toBe(true);
+    expect(sample.people.every((p) => p.name.startsWith('Sample Person '))).toBe(true);
   });
 });
 
@@ -352,7 +450,7 @@ describe('region codes', () => {
 });
 
 describe('README', () => {
-  it('lists the columns for every import file', () => {
+  it('lists the columns for every import', () => {
     const path = new URL('../README.md', import.meta.url);
     const readme = readFileSync(path, 'utf8');
     const docs = renderImportDocs();
@@ -363,50 +461,5 @@ describe('README', () => {
       return;
     }
     expect(readme).toContain(docs);
-  });
-});
-
-describe('the example import files', () => {
-  const read = (name: string) => readFileSync(new URL(`../fixtures/import-examples/${name}`, import.meta.url), 'utf8');
-
-  it('import cleanly in the documented order', () => {
-    let d = emptyDataset();
-    const order = [
-      ['people', 'people.csv'],
-      ['partners', 'partners.csv'],
-      ['prospects', 'prospects.csv'],
-      ['coverage', 'coverage.csv'],
-      ['deals', 'deals.csv'],
-      ['briefs', 'briefs.json'],
-      ['stakeholders', 'stakeholders.json'],
-    ] as const;
-    for (const [table, file] of order) {
-      const r = importTable(table, read(file), file, d, config);
-      expect({ file, rejected: r.report.rejected, warnings: r.report.warnings, fileErrors: r.report.fileErrors }).toEqual({
-        file,
-        rejected: [],
-        warnings: [],
-        fileErrors: [],
-      });
-      d = { ...d, [table]: r.rows! };
-    }
-    expect(d.prospects).toHaveLength(3);
-    expect(d.stakeholders.find((s) => s.id === 'sample-co-a-virt')?.reports_to).toBe('sample-co-a-infra');
-  });
-
-  it('report every problem in the broken files', () => {
-    let d = emptyDataset();
-    for (const [table, file] of [
-      ['people', 'people.csv'],
-      ['partners', 'partners.csv'],
-    ] as const) {
-      d = { ...d, [table]: importTable(table, read(file), file, d, config).rows! };
-    }
-    const p = importTable('prospects', read('broken/prospects.csv'), 'prospects.csv', d, config);
-    expect(p.report).toMatchObject({ added: 2, rejectedRows: 2 });
-    expect(p.report.warnings.map((w) => w.column)).toEqual(['lat', 'primary_partner_id', 'hpe_owner_email']);
-    d = { ...d, prospects: p.rows! };
-    const deals = importTable('deals', read('broken/deals.csv'), 'deals.csv', d, config);
-    expect(deals.report).toMatchObject({ added: 1, rejectedRows: 3 });
   });
 });

@@ -3,279 +3,203 @@ import rawConfig from '../config/territories.json';
 import { parseTerritoryConfig } from '../src/config/territories';
 import {
   coverageRoles,
-  filterProspects,
+  dealLabel,
+  filterCompanies,
   hasOverlap,
   indexDataset,
   isOpenDeal,
+  isWonDeal,
+  money,
+  moneyShort,
   NO_FILTERS,
   orgTree,
+  ownerName,
   search,
+  stageTotals,
   territorySummary,
 } from '../src/data/derive';
-import { emptyDataset, type Dataset, type Deal, type Partner, type Person, type Prospect, type Role } from '../src/data/types';
+import { company, contact, dataset, deal, partner, person, prov } from './build';
 
 const config = parseTerritoryConfig(rawConfig);
-const prov = { source: 'test', verified_at: null, updated_by: 'test' };
 
-function person(tag: string, roles: Role[], states: string[] = ['US-WA'], territories: string[] = []): Person {
-  return { email: `p.${tag}@example.com`, name: `Sample Person ${tag}`, roles, specialty: null, territories, states, notes: '', ...prov };
-}
-
-function prospect(n: number, state = 'US-WA', extra: Partial<Prospect> = {}): Prospect {
-  return {
-    id: `co-${n}`,
-    name: `Sample Co ${n}`,
-    hq_city: 'Seattle',
-    state,
-    lat: 47.6,
-    lng: -122.3,
-    industry: '',
-    description: '',
-    segment: 'enterprise',
-    tier_fit: 'vme',
-    primary_partner_id: null,
-    hpe_owner_email: null,
-    notes: '',
-    ...prov,
-    ...extra,
-  };
-}
-
-function partner(n: number, states: string[], vme: Partner['has_done_vme'] = 'unknown'): Partner {
-  return {
-    id: `partner-${n}`,
-    name: `Sample Partner ${n}`,
-    states,
-    has_done_vme: vme,
-    has_done_morpheus_enterprise: 'unknown',
-    contacts: [],
-    notes: '',
-    ...prov,
-  };
-}
-
-function deal(n: number, prospectId: string, stage: string): Deal {
-  return {
-    op_id: `OPE-${String(n).padStart(10, '0')}`,
-    prospect_id: prospectId,
-    stage,
-    close_date: null,
-    hpe_owner_email: null,
-    partner_id: null,
-    as_of: '2026-10-01',
-    ...prov,
-  };
-}
-
-function dataset(patch: Partial<Dataset>): Dataset {
-  return { ...emptyDataset(), ...patch };
-}
-
-describe('open deals', () => {
-  it('treats Closed Won and Closed Lost as closed and everything else as open', () => {
-    expect(isOpenDeal(deal(1, 'x', 'Closed Won'))).toBe(false);
-    expect(isOpenDeal(deal(1, 'x', 'closed lost'))).toBe(false);
-    expect(isOpenDeal(deal(1, 'x', 'Commit'))).toBe(true);
-    expect(isOpenDeal(deal(1, 'x', 'Qualify'))).toBe(true);
-    expect(isOpenDeal(deal(1, 'x', 'Disclosed'))).toBe(true);
+describe('deal status', () => {
+  it('treats Closed, Won, and Lost stages as closed and anything else as open', () => {
+    expect(isOpenDeal(deal(1, 'co-1', 'Develop'))).toBe(true);
+    expect(isOpenDeal(deal(1, 'co-1', 'Closed Won'))).toBe(false);
+    expect(isOpenDeal(deal(1, 'co-1', 'closed lost'))).toBe(false);
+    expect(isOpenDeal(deal(1, 'co-1', 'Won'))).toBe(false);
+    expect(isOpenDeal(deal(1, 'co-1', 'Commit'))).toBe(true);
+    expect(isWonDeal(deal(1, 'co-1', 'Closed Won'))).toBe(true);
+    expect(isWonDeal(deal(1, 'co-1', 'Closed Lost'))).toBe(false);
   });
 });
 
 describe('overlap rule', () => {
-  it('needs three distinct account coverage roles', () => {
-    expect(coverageRoles([person('A', ['storage']), person('B', ['compute']), person('C', ['zerto'])])).toHaveLength(3);
+  it('counts distinct account coverage roles, not the EAM or the territory team', () => {
+    const people = [
+      person('A', ['eam']),
+      person('B', ['storage']),
+      person('C', ['compute']),
+      person('D', ['morpheus']),
+      person('E', ['storage']),
+    ];
+    expect(coverageRoles(people)).toEqual(['storage', 'compute']);
+    expect(coverageRoles([...people, person('F', ['zerto'])])).toHaveLength(3);
   });
 
-  it('does not count the EAM', () => {
-    const roles = coverageRoles([person('A', ['eam']), person('B', ['storage']), person('C', ['compute'])]);
-    expect(roles).toEqual(['storage', 'compute']);
-  });
-
-  it('counts a role once however many people hold it', () => {
-    const roles = coverageRoles([person('A', ['other']), person('B', ['other']), person('C', ['storage'])]);
-    expect(roles).toEqual(['storage', 'other']);
-  });
-
-  it('ignores territory team roles', () => {
-    const roles = coverageRoles([person('A', ['morpheus']), person('B', ['opsramp']), person('C', ['storage'])]);
-    expect(roles).toEqual(['storage']);
-  });
-
-  it('counts every account role a multi-role person holds', () => {
-    const roles = coverageRoles([person('A', ['sled', 'other']), person('B', ['greenlake'])]);
-    expect(roles).toEqual(['greenlake', 'sled', 'other']);
-  });
-
-  it('flags prospects through the coverage table', () => {
-    const people = [person('A', ['eam']), person('B', ['storage']), person('C', ['compute']), person('D', ['networking'])];
+  it('flags companies through the coverage table', () => {
+    const people = [person('A', ['storage']), person('B', ['compute']), person('C', ['zerto'])];
     const d = dataset({
       people,
-      prospects: [prospect(1), prospect(2)],
+      companies: [company(1), company(2)],
       coverage: [
-        ...people.map((p) => ({ person_email: p.email, prospect_id: 'co-1', ...prov })),
-        ...people.slice(0, 3).map((p) => ({ person_email: p.email, prospect_id: 'co-2', ...prov })),
+        ...people.map((p) => ({ person_email: p.email, company_id: 'co-1', ...prov })),
+        { person_email: people[0]!.email, company_id: 'co-2', ...prov },
       ],
     });
     const index = indexDataset(d);
     expect(hasOverlap(index, 'co-1')).toBe(true);
     expect(hasOverlap(index, 'co-2')).toBe(false);
   });
-
-  it('ignores coverage rows that point at missing people or prospects', () => {
-    const d = dataset({
-      people: [person('A', ['storage'])],
-      prospects: [prospect(1)],
-      coverage: [
-        { person_email: 'p.A@example.com', prospect_id: 'co-1', ...prov },
-        { person_email: 'nobody@example.com', prospect_id: 'co-1', ...prov },
-        { person_email: 'p.A@example.com', prospect_id: 'co-404', ...prov },
-      ],
-    });
-    expect(indexDataset(d).coverageByProspect.get('co-1')).toHaveLength(1);
-  });
 });
 
-describe('filters', () => {
-  const people = [person('A', ['storage']), person('B', ['compute']), person('C', ['zerto'])];
+describe('map pins and filters', () => {
   const d = dataset({
-    people,
-    partners: [partner(1, ['US-WA'])],
-    prospects: [
-      prospect(1, 'US-WA', { tier_fit: 'vme', primary_partner_id: 'partner-1' }),
-      prospect(2, 'US-OR', { tier_fit: 'advanced' }),
-      prospect(3, 'US-CA', { tier_fit: 'vme' }),
-      prospect(4, 'US-HI', { tier_fit: 'unknown' }),
+    companies: [
+      company(1, 'US-WA'),
+      company(2, 'US-OR', { tier_fit: 'enterprise', primary_partner_id: 'partner-1' }),
+      company(3, 'US-CA'),
+      company(4, null),
+      partner(1, ['US-WA']),
     ],
-    coverage: people.map((p) => ({ person_email: p.email, prospect_id: 'co-2', ...prov })),
-    deals: [deal(1, 'co-1', 'Commit'), deal(2, 'co-3', 'Closed Won')],
+    deals: [deal(1, 'co-1', 'Develop', { amount: 100000 }), deal(2, 'co-3', 'Closed Won', { amount: 50000, partner_id: 'partner-1' })],
   });
   const index = indexDataset(d);
-  const ids = (f: Partial<typeof NO_FILTERS>) => filterProspects(d, index, config, { ...NO_FILTERS, ...f }).map((p) => p.id);
 
-  it('returns everything with no filters, unassigned states included', () => {
-    expect(ids({})).toEqual(['co-1', 'co-2', 'co-3', 'co-4']);
+  it('pins every company with a state except partners', () => {
+    expect(filterCompanies(d, index, config, NO_FILTERS).map((c) => c.id)).toEqual(['co-1', 'co-2', 'co-3']);
   });
 
-  it('narrows by territory', () => {
-    expect(ids({ territoryId: 'pacnorthwest' })).toEqual(['co-1', 'co-2']);
-    expect(ids({ territoryId: 'southwest' })).toEqual(['co-3']);
+  it('narrows by territory, tier fit, and open deal', () => {
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, territoryId: 'pacnorthwest' }).map((c) => c.id)).toEqual(['co-1', 'co-2']);
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, tierFit: 'enterprise' }).map((c) => c.id)).toEqual(['co-2']);
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'yes' }).map((c) => c.id)).toEqual(['co-1']);
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'no' }).map((c) => c.id)).toEqual(['co-2', 'co-3']);
   });
 
-  it('narrows by tier fit', () => {
-    expect(ids({ tierFit: 'vme' })).toEqual(['co-1', 'co-3']);
+  it('narrows by partner, as primary partner or as partner on a deal', () => {
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, partnerId: 'partner-1' }).map((c) => c.id)).toEqual(['co-2', 'co-3']);
   });
 
-  it('narrows by primary partner', () => {
-    expect(ids({ partnerId: 'partner-1' })).toEqual(['co-1']);
-  });
-
-  it('narrows by open deal, counting a closed deal as none', () => {
-    expect(ids({ openDeal: 'yes' })).toEqual(['co-1']);
-    expect(ids({ openDeal: 'no' })).toEqual(['co-2', 'co-3', 'co-4']);
-  });
-
-  it('narrows to the overlap accounts', () => {
-    expect(ids({ overlapOnly: true })).toEqual(['co-2']);
-  });
-
-  it('combines filters', () => {
-    expect(ids({ territoryId: 'pacnorthwest', tierFit: 'vme', openDeal: 'yes' })).toEqual(['co-1']);
-    expect(ids({ territoryId: 'pacnorthwest', tierFit: 'enterprise' })).toEqual([]);
+  it('sums open pipeline per company', () => {
+    expect(index.openPipeline.get('co-1')).toBe(100000);
+    expect(index.openPipeline.get('co-3')).toBeUndefined();
+    expect(index.dealsByPartner.get('partner-1')).toHaveLength(1);
   });
 });
 
 describe('territory card summary', () => {
-  const d = dataset({
-    people: [
-      person('A', ['morpheus'], ['US-WA'], ['pacnorthwest']),
-      person('B', ['opsramp'], ['US-WA'], ['pacnorthwest']),
-      person('C', ['storage'], ['US-OR']),
-      person('D', ['storage'], ['US-CA']),
-      person('E', ['eam'], ['US-AK']),
-    ],
-    partners: [partner(1, ['US-WA'], 'no'), partner(2, ['US-OR'], 'yes'), partner(3, ['US-ID'], 'unknown'), partner(4, ['US-CA'], 'yes')],
-    prospects: [
-      prospect(1, 'US-WA', { primary_partner_id: 'partner-1' }),
-      prospect(2, 'US-WA', { primary_partner_id: 'partner-1' }),
-      prospect(3, 'US-OR'),
-      prospect(4, 'US-CA'),
-    ],
-    deals: [deal(1, 'co-1', 'Develop'), deal(2, 'co-2', 'Closed Lost'), deal(3, 'co-4', 'Commit')],
-  });
-  const s = territorySummary(d, config, 'pacnorthwest');
-
-  it('lists the territory team', () => {
-    expect(s.morpheus.map((p) => p.name)).toEqual(['Sample Person A']);
-    expect(s.opsramp.map((p) => p.name)).toEqual(['Sample Person B']);
-  });
-
-  it('groups other coverage by role, only for states in the territory', () => {
-    expect(s.otherCoverage.map((g) => [g.role, g.people.map((p) => p.name)])).toEqual([
-      ['eam', ['Sample Person E']],
-      ['storage', ['Sample Person C']],
+  it('ranks partners by primary-partner count, then VME experience', () => {
+    const d = dataset({
+      companies: [
+        partner(1, ['US-WA'], 'no'),
+        partner(2, ['US-OR'], 'yes'),
+        partner(3, ['US-CA'], 'yes'),
+        company(1, 'US-WA', { primary_partner_id: 'partner-1' }),
+      ],
+    });
+    const s = territorySummary(d, config, 'pacnorthwest');
+    expect(s.topPartners.map((p) => [p.partner.id, p.companies])).toEqual([
+      ['partner-1', 1],
+      ['partner-2', 0],
     ]);
   });
 
-  it('ranks partners by primary-partner count, then VME experience', () => {
-    expect(s.topPartners.map((p) => p.partner.id)).toEqual(['partner-1', 'partner-2', 'partner-3']);
+  it('counts companies, open deals, and open pipeline in the territory only', () => {
+    const d = dataset({
+      companies: [company(1, 'US-WA'), company(2, 'US-CA'), company(3, null)],
+      deals: [
+        deal(1, 'co-1', 'Develop', { amount: 250000 }),
+        deal(2, 'co-1', 'Commit', { amount: null }),
+        deal(3, 'co-1', 'Closed Won', { amount: 900000 }),
+        deal(4, 'co-2', 'Develop', { amount: 1 }),
+      ],
+    });
+    const s = territorySummary(d, config, 'pacnorthwest');
+    expect(s.companies).toBe(1);
+    expect(s.openDeals).toBe(2);
+    expect(s.pipeline).toBe(250000);
+  });
+});
+
+describe('deal helpers', () => {
+  it('totals deals by stage, open stages first', () => {
+    const totals = stageTotals([
+      deal(1, 'co-1', 'Closed Won', { amount: 10 }),
+      deal(2, 'co-1', 'Develop', { amount: 5 }),
+      deal(3, 'co-1', 'Develop', { amount: null }),
+      deal(4, 'co-1', 'Qualify', { amount: 1 }),
+    ]);
+    expect(totals.map((t) => [t.stage, t.count, t.amount])).toEqual([
+      ['Develop', 2, 5],
+      ['Qualify', 1, 1],
+      ['Closed Won', 1, 10],
+    ]);
   });
 
-  it('counts prospects and open deals in the territory only', () => {
-    expect(s.prospects).toBe(3);
-    expect(s.openDeals).toBe(1);
+  it('names the owner from the team, or the name the source gave', () => {
+    const d = dataset({ people: [person('A', ['eam'])], companies: [company(1)] });
+    const index = indexDataset(d);
+    expect(ownerName(index, { hpe_owner_email: 'p.A@example.com' })).toBe('Sample Person A');
+    expect(ownerName(index, { hpe_owner_email: null, owner_name: 'Sample Person Z' })).toBe('Sample Person Z');
+    expect(dealLabel(index, deal(1, 'co-1', 'Develop', { name: '' }))).toBe('Sample Co 1 deal');
+  });
+
+  it('formats dollars', () => {
+    expect(money(1250000)).toBe('$1,250,000');
+    expect(money(null)).toBe('');
+    expect(moneyShort(1250000)).toBe('$1.3M');
+    expect(moneyShort(450000)).toBe('$450K');
+    expect(moneyShort(900)).toBe('$900');
   });
 });
 
 describe('search', () => {
   const d = dataset({
-    people: [person('A', ['storage']), person('Smith', ['eam'])],
-    partners: [partner(1, ['US-WA'])],
-    prospects: [prospect(1), prospect(2), prospect(10), prospect(11, 'US-WA', { name: 'Ëxample Systems' })],
+    people: [person('A', ['eam'])],
+    companies: [company(1), company(2), company(10), partner(1, ['US-WA']), company(3, 'US-WA', { name: 'Société Générale Sample' })],
+    contacts: [contact('co-1-x', 'co-1', 'Sample Contact Jo')],
+    deals: [deal(77, 'co-2', 'Develop', { name: 'VME migration' })],
   });
 
-  it('finds people, partners, and prospects by name', () => {
-    const kinds = search(d, 'sample').map((h) => h.kind);
-    expect(new Set(kinds)).toEqual(new Set(['prospect', 'person', 'partner']));
+  it('finds companies, contacts, people, and deals', () => {
+    expect(search(d, 'sample person a')[0]).toMatchObject({ kind: 'person', id: 'p.A@example.com' });
+    expect(search(d, 'contact jo')[0]).toMatchObject({ kind: 'contact', id: 'co-1-x' });
+    expect(search(d, 'vme mig')[0]).toMatchObject({ kind: 'deal', id: 'OPE-0000000077' });
+    expect(search(d, 'OPE-0000000077')[0]).toMatchObject({ kind: 'deal' });
+    expect(search(d, 'sample partner')[0]).toMatchObject({ kind: 'company', id: 'partner-1' });
   });
 
-  it('ranks prefix matches first and sorts numbers naturally', () => {
-    expect(search(d, 'sample co').map((h) => h.label)).toEqual(['Sample Co 1', 'Sample Co 2', 'Sample Co 10']);
-  });
-
-  it('matches the start of any word', () => {
-    expect(search(d, 'smith').map((h) => h.label)).toEqual(['Sample Person Smith']);
-  });
-
-  it('ignores case and accents', () => {
-    expect(search(d, 'EXAMPLE').map((h) => h.label)).toEqual(['Ëxample Systems']);
-  });
-
-  it('returns nothing for an empty query', () => {
-    expect(search(d, '   ')).toEqual([]);
+  it('ranks prefix matches first, sorts numbers naturally, and ignores accents', () => {
+    expect(
+      search(d, 'sample co')
+        .map((h) => h.label)
+        .slice(0, 3),
+    ).toEqual(['Sample Co 1', 'Sample Co 2', 'Sample Co 10']);
+    expect(search(d, 'societe')[0]!.label).toBe('Société Générale Sample');
   });
 });
 
-describe('stakeholder org tree', () => {
-  const s = (id: string, reports_to: string | null) => ({ id, reports_to, name: id });
-
-  it('nests people under their manager', () => {
-    const tree = orgTree([s('cio', null), s('vp', 'cio'), s('dir', 'vp'), s('arch', 'cio')]);
-    expect(tree).toHaveLength(1);
-    expect(tree[0]!.item.id).toBe('cio');
-    expect(tree[0]!.children.map((c) => c.item.id)).toEqual(['arch', 'vp']);
-    expect(tree[0]!.children[1]!.children.map((c) => c.item.id)).toEqual(['dir']);
-  });
-
-  it('makes a root of anyone whose manager is missing', () => {
-    const tree = orgTree([s('a', 'ghost'), s('b', null)]);
-    expect(tree.map((n) => n.item.id)).toEqual(['a', 'b']);
-  });
-
-  it('breaks a reporting loop without losing anyone', () => {
-    const tree = orgTree([s('a', 'b'), s('b', 'a'), s('c', 'a')]);
-    const all: string[] = [];
-    const walk = (nodes: typeof tree) => nodes.forEach((n) => (all.push(n.item.id), walk(n.children)));
-    walk(tree);
-    expect(all.sort()).toEqual(['a', 'b', 'c']);
+describe('org tree', () => {
+  it('builds from reports_to and keeps orphans and loops at the top', () => {
+    const tree = orgTree([
+      contact('a', 'co-1', 'A'),
+      contact('b', 'co-1', 'B', 'a'),
+      contact('c', 'co-1', 'C', 'missing'),
+      contact('d', 'co-1', 'D', 'e'),
+      contact('e', 'co-1', 'E', 'd'),
+    ]);
+    expect(tree.map((n) => n.item.id)).toEqual(['a', 'c', 'd', 'e']);
+    expect(tree[0]!.children.map((n) => n.item.id)).toEqual(['b']);
   });
 });

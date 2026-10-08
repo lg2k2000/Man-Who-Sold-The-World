@@ -9,6 +9,7 @@ Work happens in Claude Code cloud sessions with this repository attached, never 
 - I'm the owner of this repository. I sell HPE Morpheus software (VM Essentials, Advanced, and Enterprise) as the replacement for VMware. HPE sells through channel partners, so my job runs through HPE account teams, HPE specialists, and partner reps rather than direct sales.
 - HPE's fiscal year 2027 starts on 1 November 2026. My FY27 territory is PacNorthwest: Alaska, Washington, Oregon, Idaho, Montana, Wyoming, British Columbia, and the Yukon. The Morpheus specialist for the 4 Corners territory will use the app for his own territory.
 - The app exists so we know who to call. For any state or province it should show who at HPE covers it, which partners work there, which companies are prospects, what we know about each prospect, and who the people inside each prospect are.
+- It is also a small CRM (decided 2026-10-08): companies, the contacts at them, and the deals with them, with dollar amounts. My manager keeps all of his deals in an Excel spreadsheet, and it has to go in with little effort and update the app each time he sends a new one.
 - It is a web app I use in a browser on my laptop, with the map as the main screen. Phones are out of scope (decided 2026-10-07).
 
 ## The map
@@ -22,13 +23,13 @@ Work happens in Claude Code cloud sessions with this repository attached, never 
 
 ## What the app does
 
-- Hovering a territory shows a card. The card lists the territory team, other HPE people who cover states in that territory grouped by role, the top partners, the number of prospects, and the number of open deals.
-- Selecting a state or province zooms to it and shows one pin per prospect at its headquarters location.
-- Selecting a pin opens a panel with four tabs: Brief, Stakeholders, Coverage, and Deals. The panel slides in from the side.
+- Hovering a territory shows a card. The card lists the territory team, other HPE people who cover states in that territory grouped by role, the top partners, the number of companies, the number of open deals, and the open pipeline in dollars.
+- Selecting a state or province zooms to it and shows one pin per company at its headquarters location. Partners have no pin; they show the states they work in.
+- Selecting a pin opens a panel with four tabs: Brief, Contacts, Coverage, and Deals. The panel slides in from the side.
 - A filter bar narrows pins by territory, tier fit (VME, Advanced, Enterprise, unknown), partner, and whether the account has an open deal.
 - An account covered by people in three or more distinct account coverage roles, not counting the EAM, gets a visual highlight and its own filter.
-- A search box finds any person, partner, or prospect by name and jumps to it on the map.
-- A People view and a Partners view list every record with edit forms. They are sortable tables.
+- A search box finds any company, contact, deal, or HPE person and jumps to it.
+- Deals, Companies, Contacts, and HPE team views list every record with edit forms. They are sortable tables. Deals shows dollar totals by stage.
 
 ## HPE roles
 
@@ -38,24 +39,23 @@ Work happens in Claude Code cloud sessions with this repository attached, never 
 
 ## Data model
 
-Every table except `territories` carries `source` (free text or URL), `verified_at` (date), and `updated_by`.
+Every table carries `source` (free text or URL), `verified_at` (date), and `updated_by`. Territories live in the config, not in these tables.
 
-- `territories` holds id, name, color, `legend_count`, members (ISO 3166-2 codes such as `US-WA` and `CA-BC`), `confirmed` per member, and fiscal year.
-- `people` holds name, role, email, territories, states, and notes.
-- `coverage` links a person to a prospect they cover. The overlap highlight is computed from this table.
-- `partners` holds name, states, `has_done_vme` (yes, no, unknown), `has_done_morpheus_enterprise` (yes, no, unknown), contacts (name, title, email), and notes.
-- `prospects` holds company name, HQ city, state or province, lat, lng, industry, a one-line description, segment (enterprise, mid-market, SLED), tier fit, primary partner, HPE owner, and notes.
-- `briefs` holds one brief per prospect with these sections: what they do, virtualization signals, filings or public records, recent IT news, tech stack, and broader trends. Each section is a list of items, and each item has text, `source_url`, `source_date`, and `confidence` (confirmed, reported, inferred).
-- `stakeholders` holds prospect, name, title, `reports_to` (another stakeholder), `role_in_decision` (economic buyer, technical decision maker, champion, influencer, blocker, unknown), last contact date, and source. Store work facts only. Render the Stakeholders tab as an org tree built from `reports_to`.
-- `deals` holds `op_id`, prospect, stage, close date, HPE owner, partner, and an `as_of` date. The `op_id` is OPE- followed by ten digits, it is unique, and it is the only join key for deals. Do not add dollar amount fields in phase 1.
+- `companies` holds name, type (prospect, customer, partner, other), website, HQ city, state or province (may be empty until known; a company without one has no pin), lat, lng, industry, a one-line description, segment (enterprise, mid-market, SLED, or not set), tier fit, primary partner (a partner company), HPE owner, and notes. Partners also hold the states they work in, `has_done_vme`, and `has_done_morpheus_enterprise` (yes, no, unknown).
+- `contacts` holds company, name, title, email, phone, `reports_to` (another contact at the same company), `role_in_decision` (economic buyer, technical decision maker, champion, influencer, blocker, unknown), last contact date, and notes. Store work facts only. Render the Contacts tab as an org tree built from `reports_to`.
+- `deals` holds `op_id`, name, company, stage, amount in US dollars, close date, forecast category, HPE owner (or the owner's name as text when they are not in the HPE team), partner, contacts on the deal, next step, notes, and an `as_of` date. The `op_id` is OPE- followed by ten digits and unique when present; a deal without one is keyed on its company and name until an import brings one.
+- `people` is the HPE team: name, role, email, territories, states, and notes.
+- `coverage` links an HPE person to a company they cover. The overlap highlight is computed from this table.
+- `briefs` holds one brief per company with these sections: what they do, virtualization signals, filings or public records, recent IT news, tech stack, and broader trends. Each section is a list of items, and each item has text, `source_url`, `source_date`, and `confidence` (confirmed, reported, inferred).
 
 ## Data rules
 
 - Ship with an empty database. Never invent a person, contact, company, deal, partner, or territory assignment. Empty states should look intentional and say what is missing.
 - Real data never goes into the repository. Import files and anything the app stores live outside Git, and `data/` is listed in `.gitignore` from the first commit. The only real-world data committed is `config/territories.json`, which holds geography and colors and no names.
 - For UI development, use fixtures with obviously fake names ("Sample Co 1", "Sample Person A") and an `is_sample` flag. When any sample row is loaded, show a banner saying the page contains sample data.
-- Imports are CSV for people, coverage, partners, prospects, and deals, and JSON for briefs and stakeholders. Validate on import and report every rejected row with the reason. Match deals on `op_id` only, never on company name.
-- A prospect without lat and lng pins at its state's or province's center with a "location unverified" marker.
+- Imports take Excel workbooks, CSV, rows pasted from a spreadsheet, and JSON (briefs are JSON only). Columns are matched by name and common alternatives, the owner can change any match, and the app remembers the matching per spreadsheet layout. Validate on import, preview the changes, and report every rejected row with the reason before anything is saved.
+- Deals match on op ID, then on company and deal name. Companies match by name with case, punctuation, and endings such as Inc or LLC ignored, and a name with no match becomes a new company that the preview lists. Contacts match by email or name at their company. An import never blanks a stored field.
+- A company without lat and lng pins at its state's or province's center with a "location unverified" marker.
 - Every brief item shows its source link and date. Items marked inferred look visibly different from confirmed ones.
 - Territory members marked unconfirmed get a subtle hatch on the map until I confirm them in the editor.
 
@@ -98,6 +98,7 @@ Every table except `territories` carries `source` (free text or URL), `verified_
 - Writing research briefs or stakeholder maps. They arrive as JSON files I produce elsewhere. Build the import and display only.
 - Pulling data from Salesforce, Power BI, or any HPE system.
 - Hosting, logins, and sharing with the 4 Corners specialist.
+- An MCP server so any LLM can update deals, people, and the map. It needs hosting, a hosted database, and a login. When the app is further along, the owner wants Neon for the database and Railway for hosting (said 2026-10-08); building it still waits for the owner's go-ahead.
 
 ## Reference: FY27 territories
 

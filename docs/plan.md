@@ -1,6 +1,6 @@
 # Phase 1 plan
 
-Status: approved by the owner on 2026-10-07 ("go start"). Phase 1 was built on 2026-10-07 and 08 as M1 to M5, and M6 (map detail) followed on 2026-10-08 at the owner's request; `docs/progress.md` records what changed from this plan and why.
+Status: approved by the owner on 2026-10-07 ("go start"). Phase 1 was built on 2026-10-07 and 08 as M1 to M5. M6 (map detail) and M7 (CRM and spreadsheet import) followed on 2026-10-08 at the owner's request; `docs/progress.md` records what changed from this plan and why.
 
 Phase 1 builds a web app for a laptop browser that shows, for any state or province, who at HPE covers it, which partners work there, and which prospects sit there. It ships with an empty database, and only files the owner imports fill it.
 
@@ -98,6 +98,13 @@ Before each PR, Claude runs `tsc --noEmit`, the unit tests, and `vite build`, th
 - The owner asked for a map "way more detailed" than the reference, and chose detail bundled with the app over a tile service, with every free layer: cities and towns, highways, rivers and lakes, metro areas, US county lines, and state and province names.
 - Labels are placed so none overlap, and more appear with zoom. A layers menu turns each kind on or off.
 - Panning stays smooth with every layer on and 600 pins.
+
+### M7 CRM and spreadsheet import (added 2026-10-08)
+
+- The owner wants the app to work as a CRM (companies, contacts, deals) with dollar amounts, and wants the manager's Excel deal sheet to go in with little effort.
+- Companies replace prospects and partners; contacts replace stakeholders and partner contacts; deals gain names, amounts, forecast category, contacts, and next steps, and an op ID becomes optional.
+- Imports read Excel, CSV, JSON, and pasted rows, match columns by name, link rows to companies and people by name, and preview every change before saving.
+- Hosting and an MCP server come later, on Neon and Railway, when the owner says go.
 
 ## Open items that do not block M1
 

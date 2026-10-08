@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { coverageRoles, isOpenDeal, orgTree, OVERLAP_THRESHOLD, type OrgNode } from '../data/derive';
+import { coverageRoles, dealLabel, isOpenDeal, money, orgTree, ownerName, OVERLAP_THRESHOLD, type OrgNode } from '../data/derive';
 import {
   BRIEF_SECTIONS,
   BRIEF_SECTION_LABELS,
+  COMPANY_TYPE_LABELS,
   ROLE_LABELS,
+  SEGMENT_LABELS,
   TIER_FIT_LABELS,
   type Brief,
   type BriefItem,
-  type Partner,
+  type Company,
+  type Contact,
+  type Deal,
   type Person,
-  type Prospect,
-  type Stakeholder,
 } from '../data/types';
-import { useApp } from '../state/app';
+import { useApp, type CompanyTab } from '../state/app';
+import { plural } from './forms';
 
 interface Props {
   regionNames: Map<string, string>;
 }
 
-/** The panel that slides in from the right for a prospect, person, or partner. */
+/** The panel that slides in from the right for a company or an HPE person. */
 export function SidePanel({ regionNames }: Props) {
   const panel = useApp((s) => s.panel);
   const index = useApp((s) => s.index);
@@ -50,23 +53,22 @@ export function SidePanel({ regionNames }: Props) {
 
   let body: React.ReactNode = null;
   let title = '';
-  if (panel?.kind === 'prospect') {
-    const p = index.prospectById.get(panel.id);
-    if (p) {
-      title = p.name;
-      body = <ProspectBody prospect={p} regionNames={regionNames} />;
+  if (panel?.kind === 'company') {
+    const c = index.companyById.get(panel.id);
+    if (c) {
+      title = c.name;
+      body =
+        c.type === 'partner' ? (
+          <PartnerBody partner={c} regionNames={regionNames} />
+        ) : (
+          <CompanyBody key={`${c.id}:${panel.tab ?? ''}`} company={c} regionNames={regionNames} initialTab={panel.tab} />
+        );
     }
   } else if (panel?.kind === 'person') {
     const p = index.personByEmail.get(panel.id);
     if (p) {
       title = p.name;
       body = <PersonBody person={p} regionNames={regionNames} />;
-    }
-  } else if (panel?.kind === 'partner') {
-    const p = index.partnerById.get(panel.id);
-    if (p) {
-      title = p.name;
-      body = <PartnerBody partner={p} regionNames={regionNames} />;
     }
   }
 
@@ -91,28 +93,30 @@ export function SidePanel({ regionNames }: Props) {
   );
 }
 
-const TABS = ['Brief', 'Stakeholders', 'Coverage', 'Deals'] as const;
-type Tab = (typeof TABS)[number];
+const TABS: CompanyTab[] = ['Brief', 'Contacts', 'Coverage', 'Deals'];
+type Tab = CompanyTab;
 
-function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNames: Map<string, string> }) {
-  const [tab, setTab] = useState<Tab>('Brief');
+function CompanyBody({ company, regionNames, initialTab }: { company: Company; regionNames: Map<string, string>; initialTab?: Tab }) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? 'Brief');
   const data = useApp((s) => s.data);
   const index = useApp((s) => s.index);
   const openPerson = useApp((s) => s.openPerson);
-  const openPartner = useApp((s) => s.openPartner);
+  const openCompany = useApp((s) => s.openCompany);
+  const editCompany = useApp((s) => s.editCompany);
 
-  const brief = useMemo(() => data.briefs.find((b) => b.prospect_id === prospect.id) ?? null, [data.briefs, prospect.id]);
-  const stakeholders = useMemo(() => data.stakeholders.filter((s) => s.prospect_id === prospect.id), [data.stakeholders, prospect.id]);
-  const deals = index.dealsByProspect.get(prospect.id) ?? [];
-  const covering = index.coverageByProspect.get(prospect.id) ?? [];
+  const brief = useMemo(() => data.briefs.find((b) => b.company_id === company.id) ?? null, [data.briefs, company.id]);
+  const contacts = index.contactsByCompany.get(company.id) ?? [];
+  const deals = index.dealsByCompany.get(company.id) ?? [];
+  const covering = index.coverageByCompany.get(company.id) ?? [];
   const roles = coverageRoles(covering);
-  const partner = prospect.primary_partner_id ? index.partnerById.get(prospect.primary_partner_id) : undefined;
-  const owner = prospect.hpe_owner_email ? index.personByEmail.get(prospect.hpe_owner_email) : undefined;
+  const partner = company.primary_partner_id ? index.companyById.get(company.primary_partner_id) : undefined;
+  const owner = company.hpe_owner_email ? index.personByEmail.get(company.hpe_owner_email) : undefined;
   const regionIndex = useApp((s) => s.regionIndex);
-  const territory = regionIndex.get(prospect.state)?.territory;
+  const territory = company.state ? regionIndex.get(company.state)?.territory : undefined;
+  const pipeline = index.openPipeline.get(company.id) ?? 0;
   const counts: Record<Tab, number> = {
     Brief: brief ? BRIEF_SECTIONS.reduce((n, s) => n + brief.sections[s].length, 0) : 0,
-    Stakeholders: stakeholders.length,
+    Contacts: contacts.length,
     Coverage: covering.length,
     Deals: deals.length,
   };
@@ -120,22 +124,29 @@ function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNam
   return (
     <div className="panel-body">
       <div className="facts">
-        <p className="lede">{prospect.description || <span className="muted">No description imported.</span>}</p>
+        <p className="lede">{company.description || <span className="muted">No description yet.</span>}</p>
         <div className="tags">
-          <span className="tag">{TIER_FIT_LABELS[prospect.tier_fit]} fit</span>
-          <span className="tag">{segmentLabel(prospect.segment)}</span>
-          {prospect.industry && <span className="tag">{prospect.industry}</span>}
+          <span className="tag">{COMPANY_TYPE_LABELS[company.type]}</span>
+          {company.tier_fit !== 'unknown' && <span className="tag">{TIER_FIT_LABELS[company.tier_fit]} fit</span>}
+          {company.segment && <span className="tag">{SEGMENT_LABELS[company.segment]}</span>}
+          {company.industry && <span className="tag">{company.industry}</span>}
           {roles.length >= OVERLAP_THRESHOLD && <span className="tag overlap">{roles.length} coverage roles</span>}
-          {deals.some(isOpenDeal) && <span className="tag deal">Open deal</span>}
+          {deals.some(isOpenDeal) && <span className="tag deal">Open pipeline {money(pipeline)}</span>}
         </div>
         <dl className="kv">
           <dt>HQ</dt>
           <dd>
-            {prospect.hq_city}, {regionNames.get(prospect.state) ?? prospect.state}
-            {(prospect.lat === null || prospect.lng === null) && <span className="unverified-note"> Location unverified</span>}
+            {[company.hq_city, company.state ? (regionNames.get(company.state) ?? company.state) : null].filter(Boolean).join(', ') || (
+              <span className="muted">No location yet</span>
+            )}
+            {company.state && (company.lat === null || company.lng === null) && (
+              <span className="unverified-note"> Location unverified</span>
+            )}
           </dd>
           <dt>Territory</dt>
-          <dd>{territory ? territory.name : <span className="muted">Unassigned</span>}</dd>
+          <dd>
+            {territory ? territory.name : <span className="muted">{company.state ? 'Unassigned' : 'None until it has a state'}</span>}
+          </dd>
           <dt>HPE owner</dt>
           <dd>
             {owner ? (
@@ -143,22 +154,41 @@ function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNam
                 {owner.name}
               </button>
             ) : (
-              (prospect.hpe_owner_email ?? <span className="muted">None imported</span>)
+              (company.hpe_owner_email ?? <span className="muted">None</span>)
             )}
           </dd>
           <dt>Primary partner</dt>
           <dd>
             {partner ? (
-              <button type="button" className="link" onClick={() => openPartner(partner.id)}>
+              <button type="button" className="link" onClick={() => openCompany(partner.id)}>
                 {partner.name}
               </button>
             ) : (
-              <span className="muted">None imported</span>
+              <span className="muted">None</span>
             )}
           </dd>
+          {company.website && (
+            <>
+              <dt>Website</dt>
+              <dd>
+                <a
+                  href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  {company.website.replace(/^https?:\/\//, '')}
+                </a>
+              </dd>
+            </>
+          )}
         </dl>
+        <p>
+          <button type="button" className="btn small" onClick={() => editCompany(company.id)}>
+            Edit in Companies
+          </button>
+        </p>
       </div>
-      <div className="tabs" role="tablist" aria-label={`${prospect.name} details`}>
+      <div className="tabs" role="tablist" aria-label={`${company.name} details`}>
         {TABS.map((t) => (
           <button
             key={t}
@@ -195,16 +225,12 @@ function ProspectBody({ prospect, regionNames }: { prospect: Prospect; regionNam
       </div>
       <div className="tabpanel" role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0}>
         {tab === 'Brief' && <BriefTab brief={brief} />}
-        {tab === 'Stakeholders' && <StakeholdersTab stakeholders={stakeholders} />}
+        {tab === 'Contacts' && <ContactsTab contacts={contacts} />}
         {tab === 'Coverage' && <CoverageTab people={covering} partner={partner} />}
-        {tab === 'Deals' && <DealsTab prospect={prospect} />}
+        {tab === 'Deals' && <DealsTab deals={deals} />}
       </div>
     </div>
   );
-}
-
-function segmentLabel(s: Prospect['segment']) {
-  return s === 'sled' ? 'SLED' : s === 'mid-market' ? 'Mid-market' : 'Enterprise';
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
@@ -212,7 +238,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 function BriefTab({ brief }: { brief: Brief | null }) {
-  if (!brief) return <Empty>No brief imported for this prospect. Briefs arrive as a JSON import.</Empty>;
+  if (!brief) return <Empty>No brief for this company yet. Briefs arrive as a JSON import.</Empty>;
   return (
     <div className="brief">
       <p className="legend-inline">
@@ -261,9 +287,9 @@ function hostOf(url: string) {
   }
 }
 
-function StakeholdersTab({ stakeholders }: { stakeholders: Stakeholder[] }) {
-  const tree = useMemo(() => orgTree(stakeholders), [stakeholders]);
-  if (!stakeholders.length) return <Empty>No stakeholders imported for this prospect. They arrive as a JSON import.</Empty>;
+function ContactsTab({ contacts }: { contacts: Contact[] }) {
+  const tree = useMemo(() => orgTree(contacts), [contacts]);
+  if (!contacts.length) return <Empty>No contacts at this company yet. Add them in Contacts or import a contacts sheet.</Empty>;
   return (
     <ul className="org">
       {tree.map((n) => (
@@ -273,17 +299,28 @@ function StakeholdersTab({ stakeholders }: { stakeholders: Stakeholder[] }) {
   );
 }
 
-function OrgRow({ node }: { node: OrgNode<Stakeholder> }) {
+function OrgRow({ node }: { node: OrgNode<Contact> }) {
   const s = node.item;
+  const editContact = useApp((st) => st.editContact);
   return (
     <li>
       <div className="org-card">
-        <div className="org-name">{s.name}</div>
+        <button type="button" className="link org-name" onClick={() => editContact(s.id)}>
+          {s.name}
+        </button>
         <div className="org-title">{s.title}</div>
         <div className="org-meta">
-          <span className={`role-chip r-${s.role_in_decision.replace(/ /g, '-')}`}>{s.role_in_decision}</span>
+          {s.role_in_decision !== 'unknown' && (
+            <span className={`role-chip r-${s.role_in_decision.replace(/ /g, '-')}`}>{s.role_in_decision}</span>
+          )}
           <span className="muted">{s.last_contact ? `Last contact ${s.last_contact}` : 'No contact logged'}</span>
         </div>
+        {(s.email || s.phone) && (
+          <div className="org-meta">
+            {s.email && <a href={`mailto:${s.email}`}>{s.email}</a>}
+            {s.phone && <span className="muted">{s.phone}</span>}
+          </div>
+        )}
       </div>
       {node.children.length > 0 && (
         <ul>
@@ -296,14 +333,16 @@ function OrgRow({ node }: { node: OrgNode<Stakeholder> }) {
   );
 }
 
-function CoverageTab({ people, partner }: { people: Person[]; partner: Partner | undefined }) {
+function CoverageTab({ people, partner }: { people: Person[]; partner: Company | undefined }) {
   const openPerson = useApp((s) => s.openPerson);
-  const openPartner = useApp((s) => s.openPartner);
+  const openCompany = useApp((s) => s.openCompany);
+  const index = useApp((s) => s.index);
+  const partnerContacts = partner ? (index.contactsByCompany.get(partner.id) ?? []) : [];
   return (
     <div className="coverage">
       <h3>HPE people</h3>
       {people.length === 0 ? (
-        <Empty>No coverage imported for this prospect.</Empty>
+        <Empty>No HPE coverage recorded for this company.</Empty>
       ) : (
         <ul className="people">
           {[...people]
@@ -324,61 +363,78 @@ function CoverageTab({ people, partner }: { people: Person[]; partner: Partner |
       )}
       <h3>Primary partner</h3>
       {!partner ? (
-        <Empty>No primary partner imported.</Empty>
+        <Empty>No primary partner set.</Empty>
       ) : (
         <div>
-          <button type="button" className="link" onClick={() => openPartner(partner.id)}>
+          <button type="button" className="link" onClick={() => openCompany(partner.id)}>
             {partner.name}
           </button>
-          <ul className="people">
-            {partner.contacts.map((c) => (
-              <li key={c.email || c.name}>
-                <span>{c.name}</span>
-                <span className="muted">{c.title}</span>
-                {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
-              </li>
-            ))}
-          </ul>
+          <ContactList contacts={partnerContacts} />
         </div>
       )}
     </div>
   );
 }
 
-function DealsTab({ prospect }: { prospect: Prospect }) {
+function ContactList({ contacts }: { contacts: Contact[] }) {
+  if (!contacts.length) return null;
+  return (
+    <ul className="people">
+      {contacts.map((c) => (
+        <li key={c.id}>
+          <span>{c.name}</span>
+          <span className="muted">{c.title}</span>
+          {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DealsTab({ deals: list, showCompany = false }: { deals: Deal[]; showCompany?: boolean }) {
   const index = useApp((s) => s.index);
-  const deals = [...(index.dealsByProspect.get(prospect.id) ?? [])].sort((a, b) => (a.close_date ?? '').localeCompare(b.close_date ?? ''));
-  if (!deals.length) return <Empty>No deals imported for this prospect.</Empty>;
+  const editDeal = useApp((s) => s.editDeal);
+  const deals = [...list].sort(
+    (a, b) => Number(isOpenDeal(b)) - Number(isOpenDeal(a)) || (a.close_date ?? '').localeCompare(b.close_date ?? ''),
+  );
+  if (!deals.length) return <Empty>No deals yet.</Empty>;
+  const open = deals.filter(isOpenDeal);
   return (
     <table className="deals">
       <thead>
         <tr>
-          <th>OP ID</th>
+          <th>Deal</th>
           <th>Stage</th>
+          <th className="num">Amount</th>
           <th>Close</th>
-          <th>Partner</th>
         </tr>
       </thead>
       <tbody>
         {deals.map((d) => (
-          <tr key={d.op_id} className={isOpenDeal(d) ? '' : 'closed'}>
-            <td className="mono">{d.op_id}</td>
+          <tr key={d.id} className={isOpenDeal(d) ? '' : 'closed'}>
+            <td>
+              <button type="button" className="link" onClick={() => editDeal(d.id)}>
+                {dealLabel(index, d)}
+              </button>
+              <div className="muted small">
+                {[showCompany ? index.companyById.get(d.company_id)?.name : null, ownerName(index, d), d.op_id].filter(Boolean).join(' · ')}
+              </div>
+            </td>
             <td>{d.stage}</td>
-            <td>{d.close_date ?? 'none'}</td>
-            <td>{(d.partner_id && index.partnerById.get(d.partner_id)?.name) || <span className="muted">none</span>}</td>
+            <td className="num">{money(d.amount)}</td>
+            <td>{d.close_date ?? ''}</td>
           </tr>
         ))}
       </tbody>
       <tfoot>
         <tr>
           <td colSpan={4} className="muted small">
-            As of{' '}
+            {plural(open.length, 'open deal')}, {money(open.reduce((n, d) => n + (d.amount ?? 0), 0))}. As of{' '}
             {deals
               .map((d) => d.as_of)
               .sort()
               .at(-1)}
-            . HPE owner:{' '}
-            {deals[0]?.hpe_owner_email ? (index.personByEmail.get(deals[0].hpe_owner_email)?.name ?? deals[0].hpe_owner_email) : 'none'}
+            .
           </td>
         </tr>
       </tfoot>
@@ -388,15 +444,17 @@ function DealsTab({ prospect }: { prospect: Prospect }) {
 
 function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<string, string> }) {
   const index = useApp((s) => s.index);
+  const data = useApp((s) => s.data);
   const config = useApp((s) => s.config);
-  const openProspect = useApp((s) => s.openProspect);
+  const openCompany = useApp((s) => s.openCompany);
   const editPerson = useApp((s) => s.editPerson);
   const accounts = index.coverageByPerson.get(person.email) ?? [];
+  const owned = data.deals.filter((d) => d.hpe_owner_email === person.email);
   return (
     <div className="panel-body">
       <p>
         <button type="button" className="btn small" onClick={() => editPerson(person.email)}>
-          Edit in People
+          Edit in HPE team
         </button>
       </p>
       <dl className="kv">
@@ -428,35 +486,38 @@ function PersonBody({ person, regionNames }: { person: Person; regionNames: Map<
       </dl>
       <h3>Accounts covered ({accounts.length})</h3>
       {accounts.length === 0 ? (
-        <Empty>No coverage imported for this person.</Empty>
+        <Empty>No coverage recorded for this person.</Empty>
       ) : (
         <ul className="people">
-          {accounts.map((p) => (
-            <li key={p.id}>
-              <button type="button" className="link" onClick={() => openProspect(p.id)}>
-                {p.name}
+          {accounts.map((c) => (
+            <li key={c.id}>
+              <button type="button" className="link" onClick={() => openCompany(c.id)}>
+                {c.name}
               </button>
-              <span className="muted">
-                {p.hq_city}, {p.state.slice(3)}
-              </span>
+              <span className="muted">{[c.hq_city, c.state?.slice(3)].filter(Boolean).join(', ')}</span>
             </li>
           ))}
         </ul>
       )}
+      <h3>Deals they own ({owned.length})</h3>
+      <DealsTab deals={owned} showCompany />
     </div>
   );
 }
 
-function PartnerBody({ partner, regionNames }: { partner: Partner; regionNames: Map<string, string> }) {
+function PartnerBody({ partner, regionNames }: { partner: Company; regionNames: Map<string, string> }) {
   const data = useApp((s) => s.data);
-  const openProspect = useApp((s) => s.openProspect);
-  const editPartner = useApp((s) => s.editPartner);
-  const primaryFor = data.prospects.filter((p) => p.primary_partner_id === partner.id);
+  const index = useApp((s) => s.index);
+  const openCompany = useApp((s) => s.openCompany);
+  const editCompany = useApp((s) => s.editCompany);
+  const primaryFor = data.companies.filter((c) => c.primary_partner_id === partner.id);
+  const contacts = index.contactsByCompany.get(partner.id) ?? [];
+  const deals = index.dealsByPartner.get(partner.id) ?? [];
   return (
     <div className="panel-body">
       <p>
-        <button type="button" className="btn small" onClick={() => editPartner(partner.id)}>
-          Edit in Partners
+        <button type="button" className="btn small" onClick={() => editCompany(partner.id)}>
+          Edit in Companies
         </button>
       </p>
       <dl className="kv">
@@ -464,8 +525,8 @@ function PartnerBody({ partner, regionNames }: { partner: Partner; regionNames: 
         <dd>{partner.has_done_vme}</dd>
         <dt>Has done Morpheus Enterprise</dt>
         <dd>{partner.has_done_morpheus_enterprise}</dd>
-        <dt>States</dt>
-        <dd>{partner.states.map((c) => regionNames.get(c) ?? c).join(', ') || <span className="muted">None</span>}</dd>
+        <dt>Works in</dt>
+        <dd>{partner.states.map((c) => regionNames.get(c) ?? c).join(', ') || <span className="muted">No states set</span>}</dd>
         {partner.notes && (
           <>
             <dt>Notes</dt>
@@ -474,32 +535,20 @@ function PartnerBody({ partner, regionNames }: { partner: Partner; regionNames: 
         )}
       </dl>
       <h3>Contacts</h3>
-      {partner.contacts.length === 0 ? (
-        <Empty>No contacts imported.</Empty>
-      ) : (
-        <ul className="people">
-          {partner.contacts.map((c) => (
-            <li key={c.email || c.name}>
-              <span>{c.name}</span>
-              <span className="muted">{c.title}</span>
-              {c.email && <a href={`mailto:${c.email}`}>{c.email}</a>}
-            </li>
-          ))}
-        </ul>
-      )}
+      {contacts.length === 0 ? <Empty>No contacts at this partner yet.</Empty> : <ContactList contacts={contacts} />}
+      <h3>Deals as partner ({deals.length})</h3>
+      <DealsTab deals={deals} showCompany />
       <h3>Primary partner for ({primaryFor.length})</h3>
       {primaryFor.length === 0 ? (
-        <Empty>No prospects name this partner as primary.</Empty>
+        <Empty>No company names this partner as primary.</Empty>
       ) : (
         <ul className="people">
-          {primaryFor.map((p) => (
-            <li key={p.id}>
-              <button type="button" className="link" onClick={() => openProspect(p.id)}>
-                {p.name}
+          {primaryFor.map((c) => (
+            <li key={c.id}>
+              <button type="button" className="link" onClick={() => openCompany(c.id)}>
+                {c.name}
               </button>
-              <span className="muted">
-                {p.hq_city}, {p.state.slice(3)}
-              </span>
+              <span className="muted">{[c.hq_city, c.state?.slice(3)].filter(Boolean).join(', ')}</span>
             </li>
           ))}
         </ul>

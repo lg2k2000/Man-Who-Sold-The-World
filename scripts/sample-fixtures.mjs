@@ -1,8 +1,10 @@
 // Writes fixtures/sample/dataset.json: obviously fake records for UI work.
 // Every row has is_sample: true. People are "Sample Person A", companies are
-// "Sample Co 1", partners are "Sample Partner 1", and every email and URL uses
-// example.com, which is reserved for examples. Cities and coordinates are real
-// places so pins land somewhere sensible; nothing else is.
+// "Sample Co 1", partners are "Sample Partner 1", contacts are "Sample Contact
+// 12C", every email and URL uses example.com, which is reserved for examples,
+// and phone numbers sit in the 555-0100 to 555-0199 range set aside for
+// fiction. Cities and coordinates are real places so pins land somewhere
+// sensible; nothing else is.
 //
 // Output is deterministic: the same script always writes the same file.
 
@@ -102,20 +104,53 @@ const partnerPlan = [
   ['southeast'],
 ];
 const yn = () => pick(['yes', 'yes', 'no', 'unknown']);
+const blank = {
+  website: '',
+  hq_city: '',
+  state: null,
+  lat: null,
+  lng: null,
+  industry: '',
+  description: '',
+  segment: null,
+  tier_fit: 'unknown',
+  primary_partner_id: null,
+  hpe_owner_email: null,
+  states: [],
+  has_done_vme: 'unknown',
+  has_done_morpheus_enterprise: 'unknown',
+  notes: '',
+};
+const phone = () => `(${pick(['206', '503', '208', '907', '604', '303', '512'])}) 555-01${pad(Math.floor(rand() * 100), 2)}`;
 const partners = partnerPlan.map((ts, i) => ({
+  ...blank,
   id: `sample-partner-${i + 1}`,
   name: `Sample Partner ${i + 1}`,
+  type: 'partner',
+  website: `sample-partner-${i + 1}.example.com`,
   states: ts.flatMap((t) => membersOf[t]),
   has_done_vme: yn(),
   has_done_morpheus_enterprise: pick(['yes', 'no', 'unknown', 'unknown']),
-  contacts: [0, 1].map((j) => ({
-    name: `Sample Contact ${i + 1}${letters(j)}`,
-    title: j === 0 ? 'Account Executive' : 'Solutions Architect',
-    email: `contact.${i + 1}${letters(j).toLowerCase()}@example.com`,
-  })),
-  notes: '',
   ...prov,
 }));
+const contacts = [];
+partners.forEach((p, i) => {
+  [0, 1].forEach((j) => {
+    contacts.push({
+      id: `${p.id}-c${j}`,
+      company_id: p.id,
+      name: `Sample Partner Contact ${i + 1}${letters(j)}`,
+      title: j === 0 ? 'Account Executive' : 'Solutions Architect',
+      email: `contact.${i + 1}${letters(j).toLowerCase()}@example.com`,
+      phone: phone(),
+      reports_to: null,
+      role_in_decision: 'unknown',
+      last_contact: null,
+      notes: '',
+      ...prov,
+    });
+  });
+});
 
 // Real cities, so pins land in the right place. Weight sets how many sample
 // prospects each city gets; PacNorthwest is the heaviest, as it is the owner's.
@@ -212,8 +247,11 @@ for (const [city, state, lat, lng, weight] of cities) {
     const partnersHere = partners.filter((p) => p.states.includes(state));
     const eams = coveragePeople.filter((p) => p.roles.includes('eam') && p.states.includes(state));
     prospects.push({
+      ...blank,
       id: `sample-co-${coNumber}`,
       name: `Sample Co ${coNumber}`,
+      type: chance(0.15) ? 'customer' : 'prospect',
+      website: `sample-co-${coNumber}.example.com`,
       hq_city: city,
       state,
       lat: unverified ? null : +(lat + (rand() - 0.5) * 0.25).toFixed(4),
@@ -241,7 +279,7 @@ for (const pr of prospects) {
   const chosen = new Set(eam ? [eam.email] : []);
   const extra = Math.floor(rand() * 5);
   for (let i = 0; i < extra; i++) chosen.add(pick(here).email);
-  for (const email of chosen) coverage.push({ person_email: email, prospect_id: pr.id, ...prov });
+  for (const email of chosen) coverage.push({ person_email: email, company_id: pr.id, ...prov });
 }
 
 // Briefs for about one prospect in five.
@@ -270,15 +308,15 @@ prospects.forEach((pr, i) => {
       confidence: pick(['confirmed', 'reported', 'inferred']),
     }));
   }
-  briefs.push({ prospect_id: pr.id, sections, ...prov });
+  briefs.push({ company_id: pr.id, sections, ...prov });
 });
 
-// Stakeholders for the same prospects: a small org tree under a CIO.
-const stakeholders = [];
+// Contacts at the same companies: a small org tree under a CIO.
 const decisionRoles = ['economic buyer', 'technical decision maker', 'champion', 'influencer', 'blocker', 'unknown'];
 for (const b of briefs) {
-  const id = (n) => `${b.prospect_id}-s${n}`;
-  const nameFor = (n) => `Sample Stakeholder ${b.prospect_id.replace('sample-co-', '')}${letters(n)}`;
+  const id = (n) => `${b.company_id}-s${n}`;
+  const num = b.company_id.replace('sample-co-', '');
+  const nameFor = (n) => `Sample Contact ${num}${letters(n)}`;
   const rows = [
     [0, 'Chief Information Officer', null, 'economic buyer'],
     [1, 'VP Infrastructure', 0, 'technical decision maker'],
@@ -288,45 +326,78 @@ for (const b of briefs) {
   ];
   if (chance(0.5)) rows.push([5, 'Systems Engineer', 3, 'influencer']);
   for (const [n, title, parent, role] of rows) {
-    stakeholders.push({
+    contacts.push({
       id: id(n),
-      prospect_id: b.prospect_id,
+      company_id: b.company_id,
       name: nameFor(n),
       title,
+      email: `contact.${num}${letters(n).toLowerCase()}@example.com`,
+      phone: chance(0.7) ? phone() : '',
       reports_to: parent === null ? null : id(parent),
       role_in_decision: role,
       last_contact: chance(0.6) ? `2026-${pad(4 + Math.floor(rand() * 6), 2)}-${pad(1 + Math.floor(rand() * 28), 2)}` : null,
+      notes: '',
       ...prov,
     });
   }
 }
 
-// Deals on about one prospect in six.
+// Deals on about one company in three, with amounts. A few have no op ID yet.
 const stages = ['Qualify', 'Develop', 'Propose', 'Commit', 'Closed Won', 'Closed Lost'];
+const forecastFor = {
+  Qualify: 'Pipeline',
+  Develop: 'Pipeline',
+  Propose: 'Upside',
+  Commit: 'Commit',
+  'Closed Won': 'Won',
+  'Closed Lost': 'Lost',
+};
+const dealKinds = ['VME migration', 'VME pilot', 'Morpheus Enterprise', 'Cluster refresh', 'DR site', 'Private cloud'];
+const nextSteps = [
+  'Schedule the technical deep dive',
+  'Send the pricing proposal',
+  'Run the proof of concept',
+  'Get the partner quote',
+  'Confirm the budget owner',
+];
 const deals = [];
 let op = 1;
 prospects.forEach((pr, i) => {
-  if (i % 6 !== 1) return;
+  // Every company with a brief and contacts has deals, plus some without.
+  if (i % 5 !== 0 && i % 9 !== 4) return;
   const n = chance(0.25) ? 2 : 1;
+  const here = contacts.filter((c) => c.company_id === pr.id);
   for (let j = 0; j < n; j++) {
+    const stage = pick(stages);
+    const withOp = chance(0.92);
+    const name = `${pick(dealKinds)} ${j + 1}`;
     deals.push({
-      op_id: `OPE-${pad(op++, 10)}`,
-      prospect_id: pr.id,
-      stage: pick(stages),
+      id: withOp ? `OPE-${pad(op, 10)}` : `${pr.id}--${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      op_id: withOp ? `OPE-${pad(op++, 10)}` : null,
+      name,
+      company_id: pr.id,
+      stage,
+      amount: chance(0.9) ? Math.round(((25 + rand() * rand() * 2400) * 1000) / 5000) * 5000 : null,
       close_date: `2027-${pad(1 + Math.floor(rand() * 10), 2)}-${pad(1 + Math.floor(rand() * 28), 2)}`,
+      forecast_category: forecastFor[stage],
       hpe_owner_email: pr.hpe_owner_email,
+      owner_name: '',
       partner_id: pr.primary_partner_id,
+      contact_ids: here.length ? [here[0].id, ...(chance(0.5) && here[3] ? [here[3].id] : [])] : [],
+      next_step: stage.startsWith('Closed') ? '' : pick(nextSteps),
+      notes: '',
       as_of: '2026-10-01',
       ...prov,
     });
   }
 });
 
-const dataset = { people, coverage, partners, prospects, briefs, stakeholders, deals };
+const companies = [...prospects, ...partners];
+const dataset = { companies, contacts, deals, people, coverage, briefs };
 const out = join(root, 'fixtures', 'sample', 'dataset.json');
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(dataset) + '\n');
 console.log(
-  `Wrote ${out}: ${people.length} people, ${partners.length} partners, ${prospects.length} prospects, ` +
-    `${coverage.length} coverage links, ${briefs.length} briefs, ${stakeholders.length} stakeholders, ${deals.length} deals`,
+  `Wrote ${out}: ${companies.length} companies (${partners.length} partners), ${contacts.length} contacts, ${deals.length} deals, ` +
+    `${people.length} people, ${coverage.length} coverage links, ${briefs.length} briefs`,
 );
