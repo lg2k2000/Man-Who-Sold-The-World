@@ -27,6 +27,19 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 - Import the manager's real pipeline workbook in the browser and check the column matching against it. The example workbook is a guess at a Salesforce layout; the real one may name columns differently.
 - The MCP server so any LLM can update deals, people, and the map. The owner wants Neon and Railway for it "when it's more built" (2026-10-08). It needs a hosted database behind the data module, hosting for the app, and a login, and waits for the owner's go-ahead.
 
+## Refreshing the owner's data from Notion
+
+The owner's private test artifact is https://claude.ai/artifact/YDC3tWtEYFyTjVag7shRV8. Its `snapshot.json` holds the FY27 team and the VME deals; read it back with the Artifact tool (`action: "read"`, `path: "snapshot.json"`) to get the three CSV files it packs. Nothing real is in this repository.
+
+To rebuild the deals from Notion (VME Deals data source `collection://f66d2a88-61c7-4b10-8b8f-46b7d00e2547`, in the owner's HPE Hub):
+
+- Query in SQL pages of 60 ordered by `url`, and check each page against `SUM`, `length()` and `group_concat` aggregates read back from Notion before using it. A `NOT (...)` filter drops rows whose state and Geo Focus are both empty, because SQL treats those comparisons as NULL; query those rows on their own.
+- Map: op ID from Opportunity ID (when a record lists several, use the one it marks "(primary)" and put the rest in the notes); stage from Stage ("Not set" when empty); amount from Forecast Amount (SFDC TCV goes in the notes); close date from Expected Close; forecast category as is; state from State/Province, then HQ State; city from HQ City only when the two states agree.
+- HPE owner is the Primary Pipeline Owner. When its name and its email point at different people, leave the owner empty and write both in the notes (the owner's deal-ownership rules say not to pick). The opportunity owner goes in the notes; a deal-registration mailbox counts as no owner.
+- Partner is the Partner field, then Primary Channel Partner, cleaned of SFDC suffixes such as " - US". Text that names two candidates, says TBD, or says proposed or unconfirmed gives no partner; the original text goes in the notes.
+- Skip Archived rows, rows with no company, and rows with neither a stage nor a state; list them in a review file with the rows whose owners disagree, records with several op IDs, op IDs with no pipeline owner, and one person on both owner fields with no partner.
+- Pack with `npm run snapshot` into `data/` and publish only to the private artifact, with the Artifact tool's `files` map pointing at the files (the session's permission check blocks shell copies of the data).
+
 ## Open questions
 
 - Whether the owner's real snapshot (the FY27 team and their VME deals from Notion) may go into the private test artifact. On 2026-10-08 the session's permission check blocked staging it, and then blocked staging the app code into the artifact folder too, so the artifact still runs the second M7 commit. The owner decides; until then the import files in `data/` load through the Data page.
