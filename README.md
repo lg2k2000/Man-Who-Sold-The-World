@@ -16,7 +16,7 @@ Open `http://localhost:5173/?sample=1` to load the fake sample data from `fixtur
 
 ## Using the map
 
-- Hover a territory to see its card: the territory team, other HPE people covering its states by role, top partners, and counts of companies, open deals, and open pipeline dollars.
+- Hover a territory to see its card: the territory team, other HPE people covering its states by role, top partners (by the accounts they work there, as primary partner or on a deal), and counts of companies, open deals, and open pipeline dollars. The card holds still where the pointer entered the territory, switches to another territory only after the pointer rests there briefly, and stays open while the pointer is on it, so its names open that person or partner and its buttons show the territory or zoom to the state.
 - Click a state or province to zoom to it and show its companies as pins. Every company with a state gets a pin except partners. A company without coordinates sits at its HQ city when the bundled towns include it, otherwise at the state's center, with a dashed pin marked "location unverified"; one without a state has no pin until someone adds it. Hovering a pin shows its open deals, their total, and the HPE owners on them.
 - Click a pin to open the side panel with Brief, Contacts (an org chart from who reports to whom), Coverage, and Deals with amounts.
 - The filter bar narrows pins by territory, tier fit, partner (as primary partner or on a deal), open deal or open pipeline of at least $25K, $50K, $100K, or $250K, and accounts covered by three or more account coverage roles (EAM excluded), which also get a green ring.

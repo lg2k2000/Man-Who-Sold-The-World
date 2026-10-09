@@ -955,8 +955,21 @@ input {
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
-  pointer-events: none;
   font-size: 13px;
+}
+
+.tcard-link {
+  font-size: inherit;
+  text-align: left;
+}
+
+.tcard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
 }
 
 .tcard-head {
@@ -1029,12 +1042,6 @@ input {
 
 .tcard p {
   margin: 0;
-}
-
-.tcard-hint {
-  margin-top: 10px !important;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
 }
 
 /* Side panel */

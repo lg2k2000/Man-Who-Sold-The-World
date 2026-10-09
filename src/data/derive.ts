@@ -211,9 +211,11 @@ export interface TerritorySummary {
 
 /**
  * What the territory card shows. "Other HPE people" are those with an account
- * coverage role who cover any state in the territory. Top partners work in
- * the territory, ranked by how many of its companies name them as primary
- * partner, then by VME experience.
+ * coverage role who cover any state in the territory. A partner works in the
+ * territory when its states include one of the territory's, or when it is the
+ * primary partner of a company there or the partner on one of its deals. Top
+ * partners are ranked by how many of the territory's companies they work with
+ * that way, then by VME experience.
  */
 export function territorySummary(d: Dataset, config: TerritoryConfig, territoryId: string, topN = 3): TerritorySummary {
   const codes = territoryCodes(config, territoryId);
@@ -228,12 +230,20 @@ export function territorySummary(d: Dataset, config: TerritoryConfig, territoryI
   }
 
   const here = d.companies.filter((c) => isPinned(c) && codes.has(c.state!));
-  const primaryCount = new Map<string, number>();
-  for (const c of here) if (c.primary_partner_id) primaryCount.set(c.primary_partner_id, (primaryCount.get(c.primary_partner_id) ?? 0) + 1);
+  const hereIds = new Set(here.map((c) => c.id));
+  const accounts = new Map<string, Set<string>>();
+  const workWith = (partnerId: string | null, companyId: string) => {
+    if (!partnerId) return;
+    const set = accounts.get(partnerId) ?? new Set<string>();
+    set.add(companyId);
+    accounts.set(partnerId, set);
+  };
+  for (const c of here) workWith(c.primary_partner_id, c.id);
+  for (const x of d.deals) if (hereIds.has(x.company_id)) workWith(x.partner_id, x.company_id);
   const vmeRank = { yes: 0, unknown: 1, no: 2 } as const;
   const topPartners = d.companies
-    .filter((c) => c.type === 'partner' && c.states.some((s) => codes.has(s)))
-    .map((partner) => ({ partner, companies: primaryCount.get(partner.id) ?? 0 }))
+    .filter((c) => c.type === 'partner' && (c.states.some((s) => codes.has(s)) || accounts.has(c.id)))
+    .map((partner) => ({ partner, companies: accounts.get(partner.id)?.size ?? 0 }))
     .sort(
       (a, b) =>
         b.companies - a.companies ||
@@ -242,8 +252,7 @@ export function territorySummary(d: Dataset, config: TerritoryConfig, territoryI
     )
     .slice(0, topN);
 
-  const ids = new Set(here.map((c) => c.id));
-  const open = d.deals.filter((x) => ids.has(x.company_id) && isOpenDeal(x));
+  const open = d.deals.filter((x) => hereIds.has(x.company_id) && isOpenDeal(x));
   return {
     morpheus,
     opsramp,

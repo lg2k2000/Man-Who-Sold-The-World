@@ -122,6 +122,18 @@ describe('territory card summary', () => {
     ]);
   });
 
+  it('counts a partner that only appears on deals in the territory', () => {
+    const d = dataset({
+      companies: [partner(1, [], 'unknown'), partner(2, [], 'yes'), company(1, 'US-WA'), company(2, 'US-OR'), company(3, 'US-CA')],
+      deals: [
+        deal(1, 'co-1', 'Develop', { partner_id: 'partner-1' }),
+        deal(2, 'co-2', 'Develop', { partner_id: 'partner-1' }),
+        deal(3, 'co-3', 'Develop', { partner_id: 'partner-2' }),
+      ],
+    });
+    expect(territorySummary(d, config, 'pacnorthwest').topPartners.map((p) => [p.partner.id, p.companies])).toEqual([['partner-1', 2]]);
+  });
+
   it('counts companies, open deals, and open pipeline in the territory only', () => {
     const d = dataset({
       companies: [company(1, 'US-WA'), company(2, 'US-CA'), company(3, null)],

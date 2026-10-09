@@ -64,8 +64,18 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const openCompany = useApp((s) => s.openCompany);
   const editing = useApp((s) => s.editingTerritories);
   const openEditor = useEditTarget((s) => s.open);
-  const setHover = useHover((s) => s.set);
-  const onRegionHover = useCallback((code: string | null, x: number, y: number) => setHover(code, x, y), [setHover]);
+  const hoverPoint = useHover((s) => s.point);
+  const hoverShow = useHover((s) => s.show);
+  const hoverLeave = useHover((s) => s.leave);
+  const hoverClear = useHover((s) => s.clear);
+  // Each unassigned region counts as its own territory for the card.
+  const onRegionHover = useCallback(
+    (code: string | null, x: number, y: number) => {
+      if (code) hoverPoint(code, x, y, (c) => index.get(c)?.territory.id ?? `region:${c}`);
+      else hoverLeave();
+    },
+    [hoverPoint, hoverLeave, index],
+  );
   const onRegionSelect = useCallback(
     (code: string, x: number, y: number) => {
       if (editing) openEditor(code, x, y);
@@ -117,7 +127,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         [-size.w * 0.5, -size.h * 0.5],
         [size.w * 1.5, size.h * 1.5],
       ])
-      .on('start', () => setHover(null))
+      .on('start', () => hoverClear())
       .on('zoom', (event) => {
         const t = event.transform;
         const layer = layerRef.current;
@@ -138,7 +148,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     return () => {
       svg.on('.zoom', null);
     };
-  }, [size, setHover]);
+  }, [size, hoverClear]);
 
   // Frame whatever the app asked for.
   useEffect(() => {
@@ -278,9 +288,9 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
       const svgBox = svgRef.current?.getBoundingClientRect();
       const box = el.getBoundingClientRect();
       if (!svgBox) return;
-      setHover(code, box.left + box.width / 2 - svgBox.left, box.top + box.height / 2 - svgBox.top);
+      hoverShow(code, box.left + box.width / 2 - svgBox.left, box.top + box.height / 2 - svgBox.top);
     },
-    [setHover],
+    [hoverShow],
   );
 
   const onRegionKey = useCallback(
@@ -298,7 +308,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         onRegionSelect(code, el.left + el.width / 2 - svgBox.left, el.top + el.height / 2 - svgBox.top);
         return;
       } else if (e.key === 'Escape') {
-        setHover(null);
+        hoverClear();
         return;
       } else return;
       e.preventDefault();
@@ -307,7 +317,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         focusRegionEl(next);
       }
     },
-    [regionOrder, focusRegionEl, onRegionSelect, setHover],
+    [regionOrder, focusRegionEl, onRegionSelect, hoverClear],
   );
 
   const selectedProspect = panel?.kind === 'company' ? panel.id : null;
@@ -364,7 +374,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
           className="map-svg"
           role="group"
           aria-label="Territory map. Tab to the states and provinces, then use the arrow keys; Enter zooms in."
-          onMouseLeave={() => setHover(null)}
+          onMouseLeave={() => hoverLeave()}
         >
           <defs>
             <pattern id="hatch" ref={patternRef} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
