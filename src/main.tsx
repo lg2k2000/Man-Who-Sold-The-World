@@ -6,17 +6,18 @@ import { configProblems } from './config';
 import { MemoryStore } from './data/store';
 import { IndexedDbStore } from './data/idb';
 import { useApp } from './state/app';
+import { fetchSnapshot } from './import/snapshot';
 import type { Dataset } from './data/types';
 import './styles.css';
 
 async function chooseStore() {
   // ?sample=1 loads the fake fixtures into memory; nothing is saved.
-  // ?sample=stress triples the sample prospects to test drawing speed.
+  // ?sample=stress triples the sample companies to test drawing speed.
   const sampleParam = new URLSearchParams(location.search).get('sample');
   if (sampleParam !== null) {
     const { default: sample } = await import('../fixtures/sample/dataset.json');
-    const data = sample as Dataset;
-    if (sampleParam === 'stress') data.prospects = stressCopies(data.prospects, 3);
+    const data = sample as unknown as Dataset;
+    if (sampleParam === 'stress') data.companies = stressCopies(data.companies, 3);
     return { store: new MemoryStore(data), problem: null };
   }
   try {
@@ -34,10 +35,10 @@ async function chooseStore() {
   }
 }
 
-function stressCopies(list: Dataset['prospects'], times: number): Dataset['prospects'] {
+function stressCopies(list: Dataset['companies'], times: number): Dataset['companies'] {
   const out = [...list];
   for (let t = 1; t < times; t++) {
-    for (const p of list) {
+    for (const p of list.filter((c) => c.type !== 'partner')) {
       out.push({
         ...p,
         id: `${p.id}-x${t}`,
@@ -50,7 +51,13 @@ function stressCopies(list: Dataset['prospects'], times: number): Dataset['prosp
   return out;
 }
 
-chooseStore().then(({ store, problem }) => useApp.getState().attachStore(store, problem));
+chooseStore().then(async ({ store, problem }) => {
+  await useApp.getState().attachStore(store, problem);
+  // A copy of the app published with a snapshot opens with its data. Sample mode never loads one.
+  if (store instanceof MemoryStore && !problem) return;
+  const snap = await fetchSnapshot();
+  if (snap) await useApp.getState().offerSnapshot(snap);
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

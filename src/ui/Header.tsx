@@ -10,8 +10,10 @@ interface Props {
 
 const NAV: { view: View; label: string }[] = [
   { view: 'map', label: 'Map' },
-  { view: 'people', label: 'People' },
-  { view: 'partners', label: 'Partners' },
+  { view: 'deals', label: 'Deals' },
+  { view: 'companies', label: 'Companies' },
+  { view: 'contacts', label: 'Contacts' },
+  { view: 'team', label: 'HPE team' },
   { view: 'data', label: 'Data' },
 ];
 

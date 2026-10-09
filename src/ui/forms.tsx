@@ -85,3 +85,171 @@ export function today(): string {
 export function statesText(codes: string[]): string {
   return codes.map((c) => c.slice(3)).join('; ');
 }
+
+interface TextFieldProps {
+  label: string;
+  value: string;
+  onChange(v: string): void;
+  error?: string;
+  hint?: ReactNode;
+  placeholder?: string;
+  type?: 'text' | 'email' | 'tel' | 'url' | 'date';
+  mono?: boolean;
+}
+
+export function TextField({ label, value, onChange, error, hint, placeholder, type = 'text', mono }: TextFieldProps) {
+  return (
+    <Field label={label} error={error} hint={hint}>
+      {(fid, d) => (
+        <input
+          id={fid}
+          aria-describedby={d}
+          className={`text-input${mono ? ' mono' : ''}`}
+          type={type}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </Field>
+  );
+}
+
+export function TextAreaField({ label, value, onChange, error, rows = 3 }: Omit<TextFieldProps, 'type'> & { rows?: number }) {
+  return (
+    <Field label={label} error={error}>
+      {(fid, d) => (
+        <textarea
+          id={fid}
+          aria-describedby={d}
+          className="text-input"
+          rows={rows}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </Field>
+  );
+}
+
+export interface Option {
+  value: string;
+  label: string;
+}
+
+export function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  error,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange(v: string): void;
+  options: Option[];
+  error?: string;
+  hint?: ReactNode;
+}) {
+  return (
+    <Field label={label} error={error} hint={hint}>
+      {(fid, d) => (
+        <select id={fid} aria-describedby={d} className="text-input" value={value} onChange={(e) => onChange(e.target.value)}>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+    </Field>
+  );
+}
+
+/** Source and verified-on, the provenance fields every record form ends with. */
+export function ProvenanceFields({
+  source,
+  setSource,
+  verified,
+  setVerified,
+  errors,
+}: {
+  source: string;
+  setSource(v: string): void;
+  verified: string;
+  setVerified(v: string): void;
+  errors: Record<string, string>;
+}) {
+  return (
+    <>
+      <TextField label="Source" value={source} onChange={setSource} error={errors.source} hint="Where this came from, as text or a URL." />
+      <Field label="Verified on" error={errors.verified_at}>
+        {(fid, d) => (
+          <div className="inline">
+            <input
+              id={fid}
+              aria-describedby={d}
+              className="text-input"
+              type="date"
+              value={verified}
+              onChange={(e) => setVerified(e.target.value)}
+            />
+            <button type="button" className="btn small" onClick={() => setVerified(today())}>
+              Today
+            </button>
+          </div>
+        )}
+      </Field>
+    </>
+  );
+}
+
+/** The drawer footer: status line, save, close, any extra buttons, and delete for an existing record. */
+export function FormFooter({
+  status,
+  saveLabel,
+  onSave,
+  onClose,
+  onDelete,
+  children,
+}: {
+  status: string | null;
+  saveLabel: string;
+  onSave(): void;
+  onClose(): void;
+  onDelete?: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <>
+      {status && (
+        <p className="form-status" role="status">
+          {status}
+        </p>
+      )}
+      <div className="btn-row">
+        <button type="button" className="btn solid" onClick={onSave}>
+          {saveLabel}
+        </button>
+        <button type="button" className="btn" onClick={onClose}>
+          Close
+        </button>
+        {children}
+        {onDelete && (
+          <>
+            <span className="fb-spacer" />
+            <button type="button" className="btn danger" onClick={onDelete}>
+              Delete
+            </button>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** "3 deals" or "1 deal"; "3 companies" or "1 company". */
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}

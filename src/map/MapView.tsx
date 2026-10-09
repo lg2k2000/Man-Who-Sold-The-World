@@ -7,13 +7,14 @@ import type { RegionAssignment, TerritoryConfig } from '../config/territories';
 import { HAWAII, mainProjection, type Boundaries } from './geo';
 import { DetailLabels, DetailUnder } from './DetailLayers';
 import type { Detail, LayerSettings } from './detail';
+import { cityKey, makeCityLocator, type CityLocator } from './locate';
 import { fitTransform, mainBounds, unionBounds, type Bounds } from './bounds';
 import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
-import { filterProspects, hasOverlap, territoryCodes, type DataIndex } from '../data/derive';
-import type { Prospect } from '../data/types';
+import { filterCompanies, hasOverlap, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
+import type { Company } from '../data/types';
 
 export interface MapInsets {
   /** Space the legend covers on the left, kept clear when framing. */
@@ -60,11 +61,21 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const filters = useApp((s) => s.filters);
   const panel = useApp((s) => s.panel);
   const selectState = useApp((s) => s.selectState);
-  const openProspect = useApp((s) => s.openProspect);
+  const openCompany = useApp((s) => s.openCompany);
   const editing = useApp((s) => s.editingTerritories);
   const openEditor = useEditTarget((s) => s.open);
-  const setHover = useHover((s) => s.set);
-  const onRegionHover = useCallback((code: string | null, x: number, y: number) => setHover(code, x, y), [setHover]);
+  const hoverPoint = useHover((s) => s.point);
+  const hoverShow = useHover((s) => s.show);
+  const hoverLeave = useHover((s) => s.leave);
+  const hoverClear = useHover((s) => s.clear);
+  // Each unassigned region counts as its own territory for the card.
+  const onRegionHover = useCallback(
+    (code: string | null, x: number, y: number) => {
+      if (code) hoverPoint(code, x, y, (c) => index.get(c)?.territory.id ?? `region:${c}`);
+      else hoverLeave();
+    },
+    [hoverPoint, hoverLeave, index],
+  );
   const onRegionSelect = useCallback(
     (code: string, x: number, y: number) => {
       if (editing) openEditor(code, x, y);
@@ -116,7 +127,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         [-size.w * 0.5, -size.h * 0.5],
         [size.w * 1.5, size.h * 1.5],
       ])
-      .on('start', () => setHover(null))
+      .on('start', () => hoverClear())
       .on('zoom', (event) => {
         const t = event.transform;
         const layer = layerRef.current;
@@ -137,7 +148,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     return () => {
       svg.on('.zoom', null);
     };
-  }, [size, setHover]);
+  }, [size, hoverClear]);
 
   // Frame whatever the app asked for.
   useEffect(() => {
@@ -162,7 +173,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
       const region = geo.byCode.get(frame.code);
       if (region) fit([region.bounds]);
       if (frame.lng !== null && frame.lat !== null) {
-        // Keep the state's zoom but center the prospect in the clear area.
+        // Keep the state's zoom but center the company in the clear area.
         const p = geo.projection([frame.lng, frame.lat]);
         if (p) {
           const k = target.k;
@@ -195,7 +206,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   }, [settled, size]);
   const highlight = useMemo(() => new Set(highlightCodes ?? []), [highlightCodes]);
 
-  const filtered = useMemo(() => filterProspects(data, dataIndex, config, filters), [data, dataIndex, config, filters]);
+  const filtered = useMemo(() => filterCompanies(data, dataIndex, config, filters), [data, dataIndex, config, filters]);
 
   // Pins show when a state or territory is chosen or the viewer has zoomed in;
   // otherwise each state shows a count.
@@ -209,16 +220,19 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
           ? 'all'
           : 'counts';
 
+  // Places a company without coordinates at its HQ city once the town data has loaded.
+  const locate = useMemo(() => (detail ? makeCityLocator(detail.cities, boundaries.regions) : null), [detail, boundaries]);
+
   const pins = useMemo(() => {
     if (!geo || scope === 'counts' || scope === 'none') return [];
     const list = scope === 'state' ? filtered.filter((p) => p.state === selectedState) : filtered;
-    return placePins(list, geo, dataIndex);
-  }, [geo, scope, filtered, selectedState, dataIndex]);
+    return placePins(list, geo, dataIndex, locate);
+  }, [geo, scope, filtered, selectedState, dataIndex, locate]);
 
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
     const n = new Map<string, number>();
-    for (const p of filtered) n.set(p.state, (n.get(p.state) ?? 0) + 1);
+    for (const p of filtered) n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
     return [...n].flatMap(([code, count]) => {
       const r = geo.byCode.get(code);
       return r ? [{ code, name: r.name, count, x: r.center[0], y: r.center[1] }] : [];
@@ -247,13 +261,13 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const regionLabels = useMemo(() => {
     const n = new Map<string, number>();
-    for (const p of filtered) n.set(p.state, (n.get(p.state) ?? 0) + 1);
+    for (const p of filtered) n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
     const labels = new Map<string, string>();
     for (const r of geo?.regions ?? []) {
       const a = index.get(r.code);
       const where = a ? `${a.territory.name}${a.confirmed ? '' : ', unconfirmed'}` : 'Unassigned';
       const count = n.get(r.code) ?? 0;
-      labels.set(r.code, `${r.name}. ${where}. ${count} prospect${count === 1 ? '' : 's'}.`);
+      labels.set(r.code, `${r.name}. ${where}. ${count} compan${count === 1 ? 'y' : 'ies'}.`);
     }
     return labels;
   }, [geo, index, filtered]);
@@ -274,9 +288,9 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
       const svgBox = svgRef.current?.getBoundingClientRect();
       const box = el.getBoundingClientRect();
       if (!svgBox) return;
-      setHover(code, box.left + box.width / 2 - svgBox.left, box.top + box.height / 2 - svgBox.top);
+      hoverShow(code, box.left + box.width / 2 - svgBox.left, box.top + box.height / 2 - svgBox.top);
     },
-    [setHover],
+    [hoverShow],
   );
 
   const onRegionKey = useCallback(
@@ -294,7 +308,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         onRegionSelect(code, el.left + el.width / 2 - svgBox.left, el.top + el.height / 2 - svgBox.top);
         return;
       } else if (e.key === 'Escape') {
-        setHover(null);
+        hoverClear();
         return;
       } else return;
       e.preventDefault();
@@ -303,10 +317,10 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         focusRegionEl(next);
       }
     },
-    [regionOrder, focusRegionEl, onRegionSelect, setHover],
+    [regionOrder, focusRegionEl, onRegionSelect, hoverClear],
   );
 
-  const selectedProspect = panel?.kind === 'prospect' ? panel.id : null;
+  const selectedProspect = panel?.kind === 'company' ? panel.id : null;
   // The selected pin draws last so it sits on top.
   const orderedPins = selectedProspect
     ? [...pins.filter((p) => p.prospect.id !== selectedProspect), ...pins.filter((p) => p.prospect.id === selectedProspect)]
@@ -333,7 +347,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     else if (e.key === 'End') next = pinOrder.at(-1);
     else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      openProspect(id);
+      openCompany(id);
       return;
     } else return;
     e.preventDefault();
@@ -360,7 +374,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
           className="map-svg"
           role="group"
           aria-label="Territory map. Tab to the states and provinces, then use the arrow keys; Enter zooms in."
-          onMouseLeave={() => setHover(null)}
+          onMouseLeave={() => hoverLeave()}
         >
           <defs>
             <pattern id="hatch" ref={patternRef} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -422,7 +436,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                   <g className="count-badge" onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}>
                     <circle r={c.count > 9 ? 12 : 10} />
                     <text dy="0.35em">{c.count}</text>
-                    <title>{`${c.name}: ${c.count} prospect${c.count === 1 ? '' : 's'}`}</title>
+                    <title>{`${c.name}: ${c.count} compan${c.count === 1 ? 'y' : 'ies'}`}</title>
                   </g>
                 </g>
               ))}
@@ -430,7 +444,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
             <g
               className="pins"
               role="group"
-              aria-label={`${pins.length} prospect pins. Use the arrow keys to move between them; Enter opens one.`}
+              aria-label={`${pins.length} company pins. Use the arrow keys to move between them; Enter opens one.`}
             >
               {orderedPins.map((p) => (
                 <g key={p.prospect.id} transform={`translate(${p.x},${p.y})`}>
@@ -439,20 +453,18 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
-                    aria-label={`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? '. Location unverified' : ''}${p.overlap ? '. Covered by 3 or more coverage roles' : ''}${dataIndex.openDealProspects.has(p.prospect.id) ? '. Open deal' : ''}.`}
+                    aria-label={pinLabel(p, dataIndex)}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
                     onKeyDown={(e) => onPinKey(e, p.prospect.id)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openProspect(p.prospect.id);
+                      openCompany(p.prospect.id);
                     }}
                   >
                     {p.overlap && <circle className="pin-halo" r={8.5} />}
                     <circle className="pin-dot" r={selectedProspect === p.prospect.id ? 7.5 : 5.5} />
-                    <title>
-                      {`${p.prospect.name}, ${p.prospect.hq_city}${p.unverified ? ' (location unverified)' : ''}${p.overlap ? ' (3+ coverage roles)' : ''}`}
-                    </title>
+                    <title>{pinLabel(p, dataIndex)}</title>
                   </g>
                 </g>
               ))}
@@ -538,8 +550,19 @@ const Regions = memo(function Regions({
   );
 });
 
+/** What a pin says on hover and to a screen reader: the company, where it is, and who owns its open deals. */
+function pinLabel(p: PlacedPin, index: DataIndex): string {
+  const where = [p.prospect.hq_city, p.unverified ? 'location unverified' : ''].filter(Boolean).join(', ');
+  const deals = openDealSummary(index, p.prospect.id);
+  return (
+    [`${p.prospect.name}${where ? ` (${where})` : ''}`, p.overlap ? 'Covered by 3 or more coverage roles' : '', deals]
+      .filter(Boolean)
+      .join('. ') + '.'
+  );
+}
+
 interface PlacedPin {
-  prospect: Prospect;
+  prospect: Company;
   x: number;
   y: number;
   unverified: boolean;
@@ -547,16 +570,18 @@ interface PlacedPin {
 }
 
 /**
- * Projects each prospect to its HQ. A prospect without coordinates sits at
- * its state's center, spread on a small spiral so several stay clickable.
+ * Projects each company to its HQ. A company without coordinates sits at its
+ * HQ city when the bundled towns have it, otherwise at its state's center,
+ * spread on a small spiral so several in one place stay clickable.
  */
 function placePins(
-  list: Prospect[],
+  list: Company[],
   geo: {
     projection: (p: [number, number]) => [number, number] | null;
     byCode: Map<string, { center: [number, number] }>;
   },
   index: DataIndex,
+  locate: CityLocator | null,
 ): PlacedPin[] {
   const unverifiedSeen = new Map<string, number>();
   const out: PlacedPin[] = [];
@@ -567,10 +592,14 @@ function placePins(
       if (xy) out.push({ prospect: p, x: xy[0], y: xy[1], unverified: false, overlap });
       continue;
     }
-    const center = geo.byCode.get(p.state)?.center;
+    // Only companies with a state reach here (see isPinned).
+    const state = p.state!;
+    const town = p.hq_city && locate ? locate(p.hq_city, state) : null;
+    const center = town ? geo.projection(town) : geo.byCode.get(state)?.center;
     if (!center) continue;
-    const n = unverifiedSeen.get(p.state) ?? 0;
-    unverifiedSeen.set(p.state, n + 1);
+    const spot = town ? `${state} ${cityKey(p.hq_city)}` : state;
+    const n = unverifiedSeen.get(spot) ?? 0;
+    unverifiedSeen.set(spot, n + 1);
     const angle = n * 2.4;
     const radius = n === 0 ? 0 : 1.2 * Math.sqrt(n);
     out.push({

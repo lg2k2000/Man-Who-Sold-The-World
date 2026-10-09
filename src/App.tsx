@@ -10,16 +10,17 @@ import { SampleBanner } from './ui/SampleBanner';
 import { SidePanel } from './ui/SidePanel';
 import { TerritoryCard } from './ui/TerritoryCard';
 import { DataView } from './ui/DataView';
-import { PeopleView } from './ui/PeopleView';
-import { PartnersView } from './ui/PartnersView';
+import { TeamView } from './ui/TeamView';
+import { CompaniesView } from './ui/CompaniesView';
+import { ContactsView } from './ui/ContactsView';
+import { DealsView } from './ui/DealsView';
 import { DraftNotice, EditBar, RegionEditor } from './ui/TerritoryEditor';
 import { EmptyMap } from './ui/EmptyMap';
 import { Dialogs } from './ui/dialogs';
-import { useApp, type View } from './state/app';
+import { useApp, VIEWS, type View } from './state/app';
 
 const LEGEND_WIDTH = 340;
 const PANEL_WIDTH = 440;
-const VIEWS: View[] = ['map', 'data', 'people', 'partners'];
 
 export function App() {
   const [boundaries, setBoundaries] = useState<Boundaries | null>(null);
@@ -78,7 +79,9 @@ export function App() {
   useEffect(() => {
     const fromHash = () => {
       const v = location.hash.replace(/^#\/?/, '') as View;
-      setView(VIEWS.includes(v) ? v : 'map');
+      // Earlier anchors (#people, #partners) still land somewhere sensible.
+      const legacy: Record<string, View> = { people: 'team', partners: 'companies' };
+      setView(VIEWS.includes(v) ? v : (legacy[v] ?? 'map'));
     };
     fromHash();
     window.addEventListener('hashchange', fromHash);
@@ -119,8 +122,10 @@ export function App() {
         </div>
       )}
       {view === 'data' && <DataView />}
-      {view === 'people' && <PeopleView regionNames={regionNames} />}
-      {view === 'partners' && <PartnersView regionNames={regionNames} />}
+      {view === 'deals' && <DealsView regionNames={regionNames} />}
+      {view === 'companies' && <CompaniesView regionNames={regionNames} />}
+      {view === 'contacts' && <ContactsView />}
+      {view === 'team' && <TeamView regionNames={regionNames} />}
       {view === 'map' && (
         <>
           {editing ? <EditBar regionNames={regionNames} /> : <FilterBar config={config} regionNames={regionNames} />}

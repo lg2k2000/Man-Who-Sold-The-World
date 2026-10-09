@@ -1,3 +1,4 @@
-op_id,prospect_id,stage,close_date,hpe_owner_email,partner_id,as_of,source,verified_at,updated_by
-OPE-0000000101,sample-co-a,Develop,2027-02-15,sample.d@example.com,sample-partner-a,2026-10-01,example file,,example
-OPE-0000000102,sample-co-b,Closed Won,2026-09-30,sample.d@example.com,sample-partner-a,2026-10-01,example file,,example
+op_id,name,company,stage,amount,close_date,forecast_category,hpe_owner,partner,contacts,next_step,as_of,source,verified_at,updated_by
+OPE-0000000101,VME migration,Sample Co A,Develop,"$450,000",2027-02-15,Pipeline,sample.d@example.com,Sample Partner A,Sample Stakeholder B,Schedule the deep dive,2026-10-01,example file,,example
+OPE-0000000102,Cluster refresh,Sample Co B,Closed Won,1.2M,9/30/2026,Won,Sample Person D,sample-partner-a,,,2026-10-01,example file,,example
+,DR site pilot,Sample Co C,Qualify,85000,,Pipeline,Sample Person E,,,Find the budget owner,2026-10-01,example file,,example

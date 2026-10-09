@@ -1,3 +1,0 @@
-id,name,states,has_done_vme,has_done_morpheus_enterprise,contacts,notes,source,verified_at,updated_by
-sample-partner-a,Sample Partner A,WA;OR;ID,yes,unknown,"Sample Contact A1 | Account Executive | a1@example.com; Sample Contact A2 | Solutions Architect | a2@example.com",,example file,,example
-sample-partner-b,Sample Partner B,WA;BC;AK,no,no,Sample Contact B1 | Account Executive | b1@example.com,,example file,,example

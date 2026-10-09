@@ -2,14 +2,15 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { search, type SearchHit } from '../data/derive';
 import { useApp } from '../state/app';
 
-const KIND_LABEL: Record<SearchHit['kind'], string> = { prospect: 'Prospect', person: 'HPE', partner: 'Partner' };
+const KIND_LABEL: Record<SearchHit['kind'], string> = { company: 'Company', contact: 'Contact', person: 'HPE', deal: 'Deal' };
 
-/** Finds any person, partner, or prospect by name and jumps to it. "/" focuses it. */
+/** Finds any company, contact, HPE person, or deal and jumps to it. "/" focuses it. */
 export function Search() {
   const data = useApp((s) => s.data);
-  const openProspect = useApp((s) => s.openProspect);
+  const index = useApp((s) => s.index);
+  const openCompany = useApp((s) => s.openCompany);
   const openPerson = useApp((s) => s.openPerson);
-  const openPartner = useApp((s) => s.openPartner);
+  const editDeal = useApp((s) => s.editDeal);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -31,9 +32,12 @@ export function Search() {
   }, []);
 
   const choose = (hit: SearchHit) => {
-    if (hit.kind === 'prospect') openProspect(hit.id);
+    if (hit.kind === 'company') openCompany(hit.id);
     else if (hit.kind === 'person') openPerson(hit.id);
-    else openPartner(hit.id);
+    else if (hit.kind === 'contact') {
+      const c = index.contactById.get(hit.id);
+      if (c) openCompany(c.company_id, 'Contacts');
+    } else editDeal(hit.id);
     setOpen(false);
     setQuery('');
     inputRef.current?.blur();
@@ -49,10 +53,10 @@ export function Search() {
       <input
         ref={inputRef}
         type="search"
-        placeholder="Search people, partners, prospects"
+        placeholder="Search companies, contacts, deals, people"
         value={query}
         role="combobox"
-        aria-label="Search people, partners, and prospects"
+        aria-label="Search companies, contacts, deals, and people"
         aria-expanded={showList}
         aria-controls={listId}
         aria-activedescendant={showList && hits[active] ? `${listId}-${active}` : undefined}
@@ -84,7 +88,7 @@ export function Search() {
       </kbd>
       {showList && (
         <ul className="search-list" role="listbox" id={listId}>
-          {hits.length === 0 && <li className="search-empty">No person, partner, or prospect matches "{query.trim()}".</li>}
+          {hits.length === 0 && <li className="search-empty">Nothing matches "{query.trim()}".</li>}
           {hits.map((h, i) => (
             <li
               key={`${h.kind}:${h.id}`}
