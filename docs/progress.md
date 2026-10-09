@@ -23,6 +23,7 @@ Read `CLAUDE.md` first, then this file, then `docs/plan.md`.
 
 ## Next
 
+- Work continues in a Claude Code session whose repository is this one; the first sessions ran from the owner's deskmonkey-assistant repository by mistake.
 - The owner reviews and merges the PRs in order (plan, then M1 to M7).
 - Import the manager's real pipeline workbook in the browser and check the column matching against it. The example workbook is a guess at a Salesforce layout; the real one may name columns differently.
 - The MCP server so any LLM can update deals, people, and the map. The owner wants Neon and Railway for it "when it's more built" (2026-10-08). It needs a hosted database behind the data module, hosting for the app, and a login, and waits for the owner's go-ahead.
@@ -42,7 +43,6 @@ To rebuild the deals from Notion (VME Deals data source `collection://f66d2a88-6
 
 ## Open questions
 
-- Whether the owner's real snapshot (the FY27 team and their VME deals from Notion) may go into the private test artifact. On 2026-10-08 the session's permission check blocked staging it, and then blocked staging the app code into the artifact folder too, so the artifact still runs the second M7 commit. The owner decides; until then the import files in `data/` load through the Data page.
 - The repository is still public, so the reference screenshot crop (legend blanked) is not committed. Once the owner makes the repository private, a session can commit it to `docs/reference/`.
 - Hosting, so the owner can click around in the app. See "Open items" in `docs/plan.md`.
 
@@ -116,5 +116,6 @@ To rebuild the deals from Notion (VME Deals data source `collection://f66d2a88-6
 - 2026-10-08 (M7): The owner asked why the map still showed no reps and asked for their current big deals from Notion on it. The app only shows what a browser has imported, and the owner had not imported the files. A published copy of the app can now carry a snapshot (`snapshot.json` beside `index.html`, packed by `npm run snapshot`). A browser that holds no real data loads it when the app opens, through the same import as the Data page; the Data page shows the snapshot and can load it again over existing data. The snapshot holds real names and deals, so it lives in `data/` and goes only into the owner's private artifact. The repository has the loader and the packing script, never a snapshot.
 - 2026-10-08 (M7): A company without coordinates pins at its HQ city when the towns bundled for the map include it (matched on name and state, with Saint, Fort, and Mount spellings read alike; a coastal town the simplified outline leaves offshore still counts), and at the state's center otherwise. The pin stays dashed and "location unverified". Before this, every imported deal in a state stacked on one spot. The brief said state center; `CLAUDE.md` now says city first, marked as Claude's change for the owner to reverse if they want.
 - 2026-10-08 (M7): Hovering a pin, or reaching it with a screen reader, gives its open deals, their total, and the HPE owners on them. The filter bar's open deal menu also offers open pipeline of $25K, $50K, $100K, or $250K and up.
+- 2026-10-09 (M7): The owner approved publishing their snapshot to the private test artifact ("I don't care about the block ... Publish my data"). It went up with the Artifact tool's `files` map after the permission check blocked shell copies of it. The artifact holds the team and 317 deals.
 - 2026-10-09 (M7): The owner found the territory card hard to read because it followed the pointer, and asked for it to hold still and take clicks. It now appears where the pointer enters a territory and keeps that spot anywhere in the same territory; it moves to another territory only after the pointer rests there for 250 ms, so crossing a neighbour on the way to the card does not swap it; it stays while the pointer is on it and goes 300 ms after the pointer leaves both. Names open the person, partners open the partner, and two buttons show the territory or zoom to the state (`src/state/hover.ts`).
 - 2026-10-09 (M7): A partner now counts in a territory when it is the primary partner of a company there or the partner on one of its deals, as well as when its states include the territory's. Imported deal sheets name partners on deals and never fill in partner states, so the card's top partners were empty for every territory.
