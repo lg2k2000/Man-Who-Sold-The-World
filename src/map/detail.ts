@@ -68,6 +68,8 @@ export interface LayerSettings {
   water: boolean;
   metro: boolean;
   counties: boolean;
+  /** Each pin's upkeep meter: how fresh its open deals are. */
+  upkeep: boolean;
 }
 
 export const DEFAULT_LAYERS: LayerSettings = {
@@ -77,6 +79,7 @@ export const DEFAULT_LAYERS: LayerSettings = {
   water: true,
   metro: true,
   counties: true,
+  upkeep: true,
 };
 
 /** Reads saved layer settings, keeping the default for anything missing or malformed. */
@@ -96,6 +99,7 @@ export const LAYER_LABELS: Record<keyof LayerSettings, string> = {
   water: 'Rivers and lakes',
   metro: 'Metro areas',
   counties: 'US county lines',
+  upkeep: 'Upkeep meters',
 };
 
 /** When a layer shows only part of the time, so a switched-on layer that looks empty is explained. */
@@ -103,6 +107,7 @@ export const LAYER_HINTS: Partial<Record<keyof LayerSettings, string>> = {
   regionNames: 'Shown when zoomed in from the continent view',
   cities: 'More towns appear as you zoom in',
   counties: 'Shown when zoomed in to a state',
+  upkeep: 'A ring on each pin that empties as a deal goes untouched',
 };
 
 /** Zoom levels at which the finer layers appear. */

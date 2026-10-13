@@ -356,6 +356,68 @@ sets.m7 = [
   { name: '14-team', query: '?sample=1#team', steps: [] },
   { name: '15-big-deals', query: '?sample=1', steps: [choose('Deals', '100000')] },
 ];
+const openToday = async (page) => {
+  await page.getByRole('button', { name: /^Today/ }).click();
+  await page.waitForTimeout(400);
+};
+sets.m8 = [
+  { name: '01-home-upkeep', query: '?sample=1', steps: [away] },
+  { name: '02-today', query: '?sample=1', steps: [openToday] },
+  {
+    name: '03-quest-opened',
+    query: '?sample=1',
+    steps: [
+      openToday,
+      async (page) => {
+        await page.locator('.quest').first().click();
+        await page.waitForTimeout(900);
+      },
+      offMap,
+    ],
+  },
+  {
+    name: '04-log-touch',
+    query: '?sample=1',
+    steps: [
+      search('Sample Co 1'),
+      click('Log touch'),
+      async (page) => {
+        await page.keyboard.type('Sample Contact 1A');
+        await page.locator('.touch-form label', { hasText: 'Call' }).click();
+        await page.waitForTimeout(200);
+      },
+      offMap,
+    ],
+  },
+  {
+    name: '05-touch-logged',
+    query: '?sample=1',
+    steps: [search('Sample Co 1'), click('Log touch'), click('Save touch'), tab('Deals'), offMap],
+  },
+  { name: '06-territory-card', query: '?sample=1', steps: [clickRegion('US-MT', -40, 25)] },
+  { name: '07-north-america-pipeline', query: '?sample=1', steps: [click('North America'), away] },
+  { name: '08-closing-filter', query: '?sample=1', steps: [choose('Closing', 'next-quarter'), away] },
+  { name: '09-coverage-gaps', query: '?sample=1', steps: [check('Coverage gaps'), away] },
+  {
+    name: '10-panel-coverage-gaps',
+    query: '?sample=1',
+    steps: [
+      check('Coverage gaps'),
+      openToday,
+      async (page) => {
+        await page.locator('.quest').first().click();
+        await page.waitForTimeout(900);
+      },
+      tab('Coverage'),
+      offMap,
+    ],
+  },
+  {
+    name: '11-panel-full-height',
+    query: '?sample=1',
+    steps: [search('Sample Co 26'), click('Make the panel full height'), tab('Deals'), offMap],
+  },
+];
 const shots = sets[milestone] ?? sets.m2;
 
 const server = await preview({ root, preview: { port: 4317, strictPort: true }, logLevel: 'error' });

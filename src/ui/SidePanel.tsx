@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { coverageRoles, dealLabel, isOpenDeal, money, orgTree, ownerName, OVERLAP_THRESHOLD, type OrgNode } from '../data/derive';
+import {
+  coverageGaps,
+  COVERAGE_GAP_LABELS,
+  coverageRoles,
+  dealLabel,
+  isOpenDeal,
+  money,
+  orgTree,
+  ownerName,
+  OVERLAP_THRESHOLD,
+  type OrgNode,
+} from '../data/derive';
 import {
   BRIEF_SECTIONS,
   BRIEF_SECTION_LABELS,
@@ -16,6 +27,8 @@ import {
 } from '../data/types';
 import { useApp, type CompanyTab } from '../state/app';
 import { plural } from './forms';
+import { CompanyUpkeep, TouchList, UpkeepMeter, useDealUpkeep } from './Upkeep';
+import { dealUpkeep } from '../data/upkeep';
 
 interface Props {
   regionNames: Map<string, string>;
@@ -27,6 +40,7 @@ export function SidePanel({ regionNames }: Props) {
   const index = useApp((s) => s.index);
   const closePanel = useApp((s) => s.closePanel);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [tall, setTall] = useState(false);
   const returnTo = useRef<HTMLElement | null>(null);
   const panelKey = panel ? `${panel.kind}:${panel.id}` : null;
 
@@ -73,18 +87,32 @@ export function SidePanel({ regionNames }: Props) {
   }
 
   return (
-    <aside className={`panel${body ? ' open' : ''}`} aria-label={title || 'Details'} aria-hidden={!body}>
+    <aside className={`panel${body ? ' open' : ''}${tall ? ' tall' : ''}`} aria-label={title || 'Details'} aria-hidden={!body}>
       {body && (
         <>
           <div className="panel-head">
             <h2 ref={headingRef} tabIndex={-1}>
               {title}
             </h2>
-            <button type="button" className="icon-btn" onClick={closePanel} aria-label="Close panel">
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="currentColor" d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" />
-              </svg>
-            </button>
+            <div className="panel-head-actions">
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setTall(!tall)}
+                aria-pressed={tall}
+                aria-label={tall ? 'Make the panel smaller' : 'Make the panel full height'}
+                title={tall ? 'Smaller' : 'Full height'}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d={tall ? 'M7 14h10l-5-5Z' : 'M7 10h10l-5 5Z'} />
+                </svg>
+              </button>
+              <button type="button" className="icon-btn" onClick={closePanel} aria-label="Close panel">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4Z" />
+                </svg>
+              </button>
+            </div>
           </div>
           {body}
         </>
@@ -114,6 +142,15 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
   const regionIndex = useApp((s) => s.regionIndex);
   const territory = company.state ? regionIndex.get(company.state)?.territory : undefined;
   const pipeline = index.openPipeline.get(company.id) ?? 0;
+  const gaps = coverageGaps(index, company.id, data.coverage.length > 0);
+  const dealOwners = [
+    ...new Set(
+      deals
+        .filter(isOpenDeal)
+        .map((d) => ownerName(index, d))
+        .filter(Boolean),
+    ),
+  ];
   const counts: Record<Tab, number> = {
     Brief: brief ? BRIEF_SECTIONS.reduce((n, s) => n + brief.sections[s].length, 0) : 0,
     Contacts: contacts.length,
@@ -153,8 +190,15 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
               <button type="button" className="link" onClick={() => openPerson(owner.id)}>
                 {owner.name}
               </button>
+            ) : company.hpe_owner_id ? (
+              company.hpe_owner_id
+            ) : dealOwners.length ? (
+              // Imported companies rarely carry an owner; their deals do.
+              <span>
+                {dealOwners.join(', ')} <span className="muted small">(from the deals)</span>
+              </span>
             ) : (
-              (company.hpe_owner_id ?? <span className="muted">None</span>)
+              <span className="muted">None</span>
             )}
           </dd>
           <dt>Primary partner</dt>
@@ -187,6 +231,7 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
             Edit in Companies
           </button>
         </p>
+        {company.type !== 'partner' && <CompanyUpkeep company={company} />}
       </div>
       <div className="tabs" role="tablist" aria-label={`${company.name} details`}>
         {TABS.map((t) => (
@@ -226,8 +271,29 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
       <div className="tabpanel" role="tabpanel" id={`tabpanel-${tab}`} aria-labelledby={`tab-${tab}`} tabIndex={0}>
         {tab === 'Brief' && <BriefTab brief={brief} />}
         {tab === 'Contacts' && <ContactsTab contacts={contacts} />}
-        {tab === 'Coverage' && <CoverageTab people={covering} partner={partner} />}
-        {tab === 'Deals' && <DealsTab deals={deals} />}
+        {tab === 'Coverage' && (
+          <>
+            {gaps.length > 0 && (
+              <ul className="plain gap-list" aria-label="Coverage gaps">
+                {gaps.map((g) => (
+                  <li key={g}>
+                    <span className="gap-key" aria-hidden="true" /> {COVERAGE_GAP_LABELS[g]}.
+                  </li>
+                ))}
+              </ul>
+            )}
+            {data.coverage.length === 0 && deals.some(isOpenDeal) && (
+              <p className="muted small">No coverage is imported yet, so the app cannot tell whether a storage rep covers this account.</p>
+            )}
+            <CoverageTab people={covering} partner={partner} />
+          </>
+        )}
+        {tab === 'Deals' && (
+          <>
+            <DealsTab deals={deals} />
+            <TouchList companyId={company.id} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -394,6 +460,7 @@ function ContactList({ contacts }: { contacts: Contact[] }) {
 function DealsTab({ deals: list, showCompany = false }: { deals: Deal[]; showCompany?: boolean }) {
   const index = useApp((s) => s.index);
   const editDeal = useApp((s) => s.editDeal);
+  const { latest, today, days } = useDealUpkeep();
   const deals = [...list].sort(
     (a, b) => Number(isOpenDeal(b)) - Number(isOpenDeal(a)) || (a.close_date ?? '').localeCompare(b.close_date ?? ''),
   );
@@ -420,7 +487,13 @@ function DealsTab({ deals: list, showCompany = false }: { deals: Deal[]; showCom
                 {[showCompany ? index.companyById.get(d.company_id)?.name : null, ownerName(index, d), d.op_id].filter(Boolean).join(' · ')}
               </div>
             </td>
-            <td>{d.stage}</td>
+            <td>
+              {d.stage}
+              {(() => {
+                const u = dealUpkeep(d, latest.get(d.id), today, days);
+                return u && <UpkeepMeter upkeep={u} compact />;
+              })()}
+            </td>
             <td className="num">{money(d.amount)}</td>
             <td>{d.close_date ?? ''}</td>
           </tr>

@@ -145,7 +145,8 @@ async function v2(): Promise<V2Dataset> {
 
 describe('moving version 2 data to people keyed by id', () => {
   it('gives every person their email as id, so every link still holds', async () => {
-    expect(migrateV2(await v2())).toEqual(await sample());
+    // Version 2 had no touches; the move gives an empty table.
+    expect(migrateV2(await v2())).toEqual({ ...(await sample()), touches: [] });
   });
 
   it('upgrades a browser database saved by version 2', async () => {
@@ -181,6 +182,32 @@ describe('moving version 2 data to people keyed by id', () => {
     const d = await sample();
     expect(restored.data!.coverage).toHaveLength(d.coverage.length);
     expect(restored.data!.deals.filter((x) => x.hpe_owner_id)).toHaveLength(d.deals.filter((x) => x.hpe_owner_id).length);
+  });
+});
+
+describe('moving version 3 data to version 4', () => {
+  it('keeps every row and adds an empty touches table', async () => {
+    const name = `test-v3-${Math.random()}`;
+    const keys: Record<string, string | string[]> = {
+      companies: 'id',
+      contacts: 'id',
+      deals: 'id',
+      people: 'id',
+      coverage: ['person_id', 'company_id'],
+      briefs: 'company_id',
+    };
+    const old = await openDB(name, 3, {
+      upgrade(db) {
+        for (const [t, keyPath] of Object.entries(keys)) db.createObjectStore(t, { keyPath });
+      },
+    });
+    const data = await sample();
+    for (const t of Object.keys(keys)) for (const row of data[t as keyof typeof data] as object[]) await old.put(t, row);
+    old.close();
+    const loaded = await new IndexedDbStore(name).load();
+    for (const t of Object.keys(keys))
+      expect(loaded[t as keyof typeof loaded]).toHaveLength((data[t as keyof typeof data] as object[]).length);
+    expect(loaded.touches).toEqual([]);
   });
 });
 

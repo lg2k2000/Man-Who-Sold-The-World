@@ -171,6 +171,7 @@ export function migrateV1(old: V1Dataset): Dataset {
     people: (old.people ?? []).map(keyByEmail),
     coverage: (old.coverage ?? []).map((c) => ({ person_id: c.person_email, company_id: c.prospect_id, ...provenanceOf(c) })),
     briefs: (old.briefs ?? []).map((b) => ({ company_id: b.prospect_id, sections: b.sections, ...provenanceOf(b) })),
+    touches: [],
   };
 }
 
@@ -197,5 +198,6 @@ export function migrateV2(old: V2Dataset): Dataset {
     people: (old.people ?? []).map(keyByEmail),
     coverage: (old.coverage ?? []).map(({ person_email, ...c }) => ({ ...c, person_id: person_email })),
     briefs: old.briefs ?? [],
+    touches: [],
   };
 }

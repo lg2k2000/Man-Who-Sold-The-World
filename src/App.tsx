@@ -24,7 +24,8 @@ import { Dialogs } from './ui/dialogs';
 import { useApp, VIEWS, type View } from './state/app';
 
 const LEGEND_WIDTH = 340;
-const PANEL_WIDTH = 440;
+/** The company panel's width plus its gap from the edge; it floats over the map's top right. */
+const PANEL_WIDTH = 404;
 
 export function App() {
   const [boundaries, setBoundaries] = useState<Boundaries | null>(null);

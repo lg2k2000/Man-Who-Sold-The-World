@@ -1,5 +1,6 @@
 {
   "fiscal_year": "FY27",
+  "fiscal_year_start": "11-01",
   "source": "HPE FY27 Sales Rep Territory Coverage map, read from a phone screenshot on 2026-10-07. Colors matched by eye. PacNorthwest confirmed by the owner on 2026-10-07.",
   "default_focus": "pacnorthwest",
   "territories": [

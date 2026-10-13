@@ -17,6 +17,7 @@ const EMPTY_HINT: Record<TableName, string> = {
   people: 'HPE people: territory teams and account coverage.',
   coverage: 'Which HPE person covers which company. Needs the HPE team and companies first.',
   briefs: 'Research briefs, one per company, as JSON.',
+  touches: 'Conversations about an account: date, who, and how. Logged from a company panel, or imported.',
 };
 
 /** Imports, the import report, sample data, and backups. */

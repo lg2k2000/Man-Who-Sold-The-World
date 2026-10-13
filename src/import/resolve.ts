@@ -362,6 +362,17 @@ export class Resolver {
     return uniqueId(`${companyId}--${slugify(name || 'deal')}`, (x) => this.dealById.has(x));
   }
 
+  /** A deal at a company by its key, op ID, or name, or null when none matches. */
+  findDeal(companyId: string, value: string): Deal | null {
+    const v = value.trim();
+    if (!v) return null;
+    const byId = this.dealById.get(v);
+    if (byId && byId.company_id === companyId) return byId;
+    const byOp = this.dealByOp.get(v.toUpperCase());
+    if (byOp && byOp.company_id === companyId) return byOp;
+    return this.dealByName.get(`${companyId} ${fold(v).trim()}`)[0] ?? null;
+  }
+
   registerDeal(d: Deal) {
     const previous = this.dealById.get(d.id);
     if (previous) this.unindexDeal(previous);

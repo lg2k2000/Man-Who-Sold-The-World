@@ -1,3 +1,4 @@
+import { isQuickClick } from './click';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { geoPath } from 'd3-geo';
 import { select } from 'd3-selection';
@@ -13,7 +14,18 @@ import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
-import { filterCompanies, hasOverlap, MY_AREA_ID, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
+import { companyUpkeep, latestTouches, localToday, UPKEEP_BAND_LABELS, upkeepBand, type UpkeepBand } from '../data/upkeep';
+import {
+  coverageGaps,
+  COVERAGE_GAP_LABELS,
+  filterCompanies,
+  hasOverlap,
+  moneyShort,
+  MY_AREA_ID,
+  openDealSummary,
+  territoryCodes,
+  type DataIndex,
+} from '../data/derive';
 import type { Company } from '../data/types';
 
 export interface MapInsets {
@@ -68,6 +80,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const focusId = useApp((s) => s.focusTerritoryId);
   const myArea = useApp((s) => s.settings.myArea);
+  const upkeepDays = useApp((s) => s.settings.upkeepDays);
   const selectedState = useApp((s) => s.selectedState);
   const highlightCodes = useApp((s) => s.highlightCodes);
   const frame = useApp((s) => s.frame);
@@ -264,12 +277,16 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
     const n = new Map<string, number>();
-    for (const p of filtered) n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
+    const dollars = new Map<string, number>();
+    for (const p of filtered) {
+      n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
+      dollars.set(p.state!, (dollars.get(p.state!) ?? 0) + (dataIndex.openPipeline.get(p.id) ?? 0));
+    }
     return [...n].flatMap(([code, count]) => {
       const r = geo.byCode.get(code);
-      return r ? [{ code, name: r.name, count, x: r.center[0], y: r.center[1] }] : [];
+      return r ? [{ code, name: r.name, count, pipeline: dollars.get(code) ?? 0, x: r.center[0], y: r.center[1] }] : [];
     });
-  }, [geo, scope, filtered]);
+  }, [geo, scope, filtered, dataIndex]);
 
   // Pins and count badges in zoom-scaled coordinates, so labels can keep clear of them.
   const labelObstacles = useMemo(() => {
@@ -356,6 +373,30 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const selectedProspect = panel?.kind === 'company' ? panel.id : null;
   // The selected pin draws last so it sits on top.
+  // Each pin's upkeep: its most neglected open deal. Drawn as a ring that empties as deals go untouched.
+  const latest = useMemo(() => latestTouches(data), [data]);
+  const pinUpkeep = useMemo(() => {
+    const today = localToday();
+    const out = new Map<string, { level: number; band: UpkeepBand; text: string }>();
+    if (!layers.upkeep) return out;
+    for (const p of pins) {
+      const u = companyUpkeep(dataIndex, latest, p.prospect.id, today, upkeepDays);
+      if (!u) continue;
+      const band = upkeepBand(u.level);
+      const text = u.pastDue
+        ? `Upkeep empty: close date ${u.deal.close_date} has passed`
+        : `${UPKEEP_BAND_LABELS[band]}, ${u.level}%${u.estimated ? ' (no touch logged; from the review date)' : u.last?.who ? `, last touch with ${u.last.who}` : ''}`;
+      out.set(p.prospect.id, { level: u.level, band, text });
+    }
+    return out;
+  }, [pins, dataIndex, latest, upkeepDays, layers.upkeep]);
+
+  // What each account with open deals is missing; the storage check waits until coverage is imported.
+  const pinGaps = useMemo(() => {
+    const known = data.coverage.length > 0;
+    return new Map(pins.map((p) => [p.prospect.id, coverageGaps(dataIndex, p.prospect.id, known)]));
+  }, [pins, dataIndex, data.coverage.length]);
+
   // Larger pins draw first so smaller ones on top stay clickable; overlap halos and the selected pin go last.
   const bySize = [...pins].sort((a, b) => Number(a.overlap) - Number(b.overlap) || pinRadius(b.prospect.id) - pinRadius(a.prospect.id));
   const orderedPins = selectedProspect
@@ -434,7 +475,8 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
               onKey={onRegionKey}
               onFocusRegion={(el, code) => {
                 setActiveRegion(code);
-                showCardFor(el, code);
+                // A mouse press also focuses the region; only keyboard focus opens the card.
+                if (el.matches(':focus-visible')) showCardFor(el, code);
               }}
             />
             {detail && <DetailUnder detail={detail} projection={geo.projection} layers={layers} k={zoomK} />}
@@ -471,7 +513,19 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                   <g className="count-badge" onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}>
                     <circle r={c.count > 9 ? 12 : 10} />
                     <text dy="0.35em">{c.count}</text>
-                    <title>{`${c.name}: ${c.count} compan${c.count === 1 ? 'y' : 'ies'}`}</title>
+                    {c.pipeline > 0 && (
+                      <g className="badge-pipeline" transform="translate(0, 22)">
+                        <rect
+                          x={-moneyShort(c.pipeline).length * 3.6 - 5}
+                          y={-8}
+                          width={moneyShort(c.pipeline).length * 7.2 + 10}
+                          height={16}
+                          rx={8}
+                        />
+                        <text dy="0.35em">{moneyShort(c.pipeline)}</text>
+                      </g>
+                    )}
+                    <title>{`${c.name}: ${c.count} compan${c.count === 1 ? 'y' : 'ies'}${c.pipeline ? `, ${moneyShort(c.pipeline)} open pipeline` : ''}`}</title>
                   </g>
                 </g>
               ))}
@@ -488,7 +542,13 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
-                    aria-label={pinLabel(p, dataIndex)}
+                    aria-label={[
+                      pinLabel(p, dataIndex),
+                      pinUpkeep.get(p.prospect.id)?.text,
+                      ...(pinGaps.get(p.prospect.id) ?? []).map((g) => COVERAGE_GAP_LABELS[g]),
+                    ]
+                      .filter(Boolean)
+                      .join('. ')}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
                     onMouseEnter={(e) => pinEnter(p, e)}
@@ -500,6 +560,34 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     }}
                   >
                     {p.overlap && <circle className="pin-halo" r={pinRadius(p.prospect.id) + 3.5} />}
+                    {(pinGaps.get(p.prospect.id)?.length ?? 0) > 0 &&
+                      (() => {
+                        const r = pinRadius(p.prospect.id);
+                        return (
+                          <g className="gap-mark" transform={`translate(${r * 0.75},${-r * 0.75})`} aria-hidden="true">
+                            <rect x={-4.5} y={-4.5} width={9} height={9} rx={2} />
+                            <text y={3}>!</text>
+                          </g>
+                        );
+                      })()}
+                    {(() => {
+                      const u = pinUpkeep.get(p.prospect.id);
+                      if (!u) return null;
+                      const r = pinRadius(p.prospect.id) + 2.5;
+                      const c = 2 * Math.PI * r;
+                      return (
+                        <g className={`upkeep-ring ${u.band}`} aria-hidden="true">
+                          <circle className="ring-track" r={r} />
+                          {/* A stale meter shows as a whole red ring, an alert that reads on any territory color. */}
+                          <circle
+                            className="ring-fill"
+                            r={r}
+                            strokeDasharray={u.band === 'low' ? undefined : `${(c * u.level) / 100} ${c}`}
+                            transform="rotate(-90)"
+                          />
+                        </g>
+                      );
+                    })()}
                     <circle className="pin-dot" r={pinRadius(p.prospect.id) + (selectedProspect === p.prospect.id ? 2 : 0)} />
                   </g>
                 </g>
@@ -516,6 +604,12 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         >
           <strong>{pinTip.pin.prospect.name}</strong>
           <span>{openDealSummary(dataIndex, pinTip.pin.prospect.id) || 'No open deal'}</span>
+          {pinUpkeep.get(pinTip.pin.prospect.id) && <span>{pinUpkeep.get(pinTip.pin.prospect.id)!.text}</span>}
+          {(pinGaps.get(pinTip.pin.prospect.id) ?? []).map((g) => (
+            <span key={g} className="tip-gap">
+              ! {COVERAGE_GAP_LABELS[g]}
+            </span>
+          ))}
           {(pinTip.pin.prospect.hq_city || pinTip.pin.unverified) && (
             <span className="muted">
               {[pinTip.pin.prospect.hq_city, pinTip.pin.unverified ? 'location unverified' : ''].filter(Boolean).join(', ')}
@@ -561,6 +655,8 @@ const Regions = memo(function Regions({
   onKey,
   onFocusRegion,
 }: RegionsProps) {
+  // A press that lasts or moves is a pan or a hold, not a click, so it opens no card.
+  const press = useRef<{ x: number; y: number; t: number } | null>(null);
   return (
     <g
       className="regions"
@@ -572,7 +668,13 @@ const Regions = memo(function Regions({
         onHover(code, e.clientX - box.left, e.clientY - box.top);
       }}
       onMouseLeave={() => onHover(null, 0, 0)}
+      onPointerDown={(e) => {
+        press.current = { x: e.clientX, y: e.clientY, t: e.timeStamp };
+      }}
       onClick={(e) => {
+        const p = press.current;
+        press.current = null;
+        if (!isQuickClick(p, e.clientX, e.clientY, e.timeStamp)) return;
         const code = (e.target as Element).getAttribute('data-code');
         const box = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
         if (code) onSelect(code, e.clientX - box.left, e.clientY - box.top);

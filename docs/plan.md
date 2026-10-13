@@ -106,6 +106,39 @@ Before each PR, Claude runs `tsc --noEmit`, the unit tests, and `vite build`, th
 - Imports read Excel, CSV, JSON, and pasted rows, match columns by name, link rows to companies and people by name, and preview every change before saving.
 - Hosting and an MCP server come later, on Neon and Railway, when the owner says go.
 
+### M8 pipeline on the map and daily upkeep (proposed 2026-10-11; the owner said go on 2026-10-13 with the defaults below)
+
+The owner said the hardest part of sales is seeing the pipeline, and that the map helps with that and with seeing where coverage overlaps. A game layer could help with the daily upkeep. M8 does both, in that order: first the map shows where the money is and where coverage has gaps, then a layer the viewer can switch on shows what needs attention today. The map stays the main screen, and the upkeep layer goes in the layers menu so it never hides the pipeline.
+
+Who owns a deal, as the owner explained on 2026-10-11: the HPE side is shared by the enterprise account manager and the storage and compute reps, and the partner owns the deal on its own side. The owner is the Morpheus specialist and works through them. The app already has the parts for this: the deal's HPE owner holds the Salesforce primary pipeline owner (one person), the account team is the coverage rows on the company (EAM, storage, compute, each with a role), and the partner is on the deal. M8 renames the deal's "HPE owner" label to "Primary pipeline owner" so it says what it is.
+
+Part A, the pipeline on the map:
+
+- Pin size follows the company's open pipeline in dollars, on a square-root scale so one large deal does not hide the rest. Pins keep a minimum size so a deal with no amount still shows.
+- Pin color stays the territory's, and a ring shows the company's furthest open stage, in four bands: early (discovery, qualify), active (propose, solution, demo, POC), late (negotiate, commit, verbal), and stage not set. Stage names are matched loosely, because Salesforce and Notion name them differently, and an unknown name counts as not set.
+- A close window filter in the filter bar: past due, this quarter, next quarter, later, and no close date. Quarters follow HPE's fiscal year, which starts on 1 November, so Q1 is November to January. The fiscal year start goes in the config, not the code.
+- At the continent and territory views, each state's badge shows its open pipeline in dollars beside the company count, and the legend shows each territory's open pipeline.
+- A coverage gap marker on a pin whose open deal has no partner, no primary pipeline owner, or no storage rep in the company's coverage (the owner's notes say nobody can approve the Morpheus part of a deal registration without one). The pin panel's Coverage tab lists which pieces are missing. A "Coverage gaps" filter shows only those pins.
+
+Part B, daily upkeep:
+
+- A touch log: a new `touches` table with the deal or company, date, who was talked to (a contact, an HPE person, or a name as text), channel (email, call, meeting, other), and an optional note. The deal and the company get a `last_touched` date computed from it. The browser database moves to version 4, and older data moves over on its own.
+- Each open deal gets an upkeep level from 0 to 100. It starts full on the day of a touch and empties in a straight line over 30 days. A close date in the past sets it to empty until the close date or stage changes. The 30 days is a setting.
+- Until a deal has its first touch, its level starts from the deal's `as_of` date (the last review date in the tracker) and is marked "estimated", because the app has no record of real touches yet.
+- On the map, with the upkeep layer on, each pin shows a small meter, and pins under a quarter full pulse once when the view settles, without looping, so the map stays readable.
+- Re-up: the pin panel and the hover card get a "Log touch" button that opens a form with today's date, the deal's contacts and owners to pick from, and the channel. Saving refills the meter. Enter saves, and the form works from the keyboard.
+- A quest board: a panel with the five most urgent items, worked out from the data each time it opens. The rules come from the owner's deal-ownership notes, in this order: close date past, no primary pipeline owner, no partner, the same company with more than one open op ID, upkeep under a quarter, and the same person on both owner fields with no partner. Each item names the deal and its op ID, says why it is on the list, and opens the deal when clicked. Clearing the cause clears the item; nothing is marked done by hand.
+
+Left out on purpose: points, streaks, badges, sounds, and leaderboards. Counting activity rewards busywork, the owner works through other reps so his own email count says little, and a leaderboard needs hosting and logins.
+
+Verification is the same as every milestone: type check, unit tests for the stage bands, fiscal quarters, upkeep levels, quest rules, and the version 4 move, the production build, and screenshots at 1440 by 900 in light and dark mode with sample data, including the upkeep layer on and off. Sample fixtures gain touches and a spread of stages, amounts, and close dates.
+
+Questions for the owner:
+
+- Does the Notion VME Deals database have a last activity or last edited date per deal? If it does, the snapshot can seed real touch dates instead of estimating from `as_of`.
+- Is 30 days the right time for a meter to empty, or should it depend on the stage (shorter for late-stage deals)?
+- Should the quest board also list a deal that is in his territory but missing from his Morpheus Tracker? The app cannot see the tracker, so that needs a column in the import (pipeline owner and Ops Seller) first.
+
 ## Open items that do not block M1
 
 - Opening the app needs it served from somewhere. During the build, the owner reviews the screenshots in each PR. To click around in it, the app either runs on a laptop with `npm run dev` or goes on a host. GitHub Pages needs a paid GitHub plan for a private repository, and Cloudflare Pages or Netlify is free but is a new account. That is the owner's call, and nothing in phase 1 deploys without it.

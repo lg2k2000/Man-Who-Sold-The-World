@@ -6,6 +6,8 @@ import { committedConfig } from '../config';
 import { buildRegionIndex, territoryConfigSchema, type RegionAssignment, type TerritoryConfig } from '../config/territories';
 import { configHash } from '../config/editor';
 import { DEFAULT_LAYERS, readLayers, type LayerSettings } from '../map/detail';
+import { deleteTouch, saveTouch } from '../data/edit';
+import { localToday, UPKEEP_DAYS } from '../data/upkeep';
 import { applySnapshot, markSnapshotApplied, shouldAutoApply, type Snapshot } from '../import/snapshot';
 
 export type ThemeSetting = 'system' | 'light' | 'dark';
@@ -20,6 +22,8 @@ interface Settings {
   homeTerritoryId: string | null;
   /** States and provinces the viewer works now, framed as "My area"; empty means none set. */
   myArea: string[];
+  /** Days for a full upkeep meter to run empty. */
+  upkeepDays: number;
   theme: ThemeSetting;
   /** Name written to updated_by when the viewer edits a record. */
   editorName: string;
@@ -28,7 +32,14 @@ interface Settings {
 }
 
 function readSettings(): Settings {
-  const fallback: Settings = { homeTerritoryId: null, myArea: [], theme: 'system', editorName: '', layers: { ...DEFAULT_LAYERS } };
+  const fallback: Settings = {
+    homeTerritoryId: null,
+    myArea: [],
+    upkeepDays: UPKEEP_DAYS,
+    theme: 'system',
+    editorName: '',
+    layers: { ...DEFAULT_LAYERS },
+  };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return fallback;
@@ -36,6 +47,10 @@ function readSettings(): Settings {
     return {
       homeTerritoryId: typeof parsed.homeTerritoryId === 'string' ? parsed.homeTerritoryId : null,
       myArea: Array.isArray(parsed.myArea) ? parsed.myArea.filter((c): c is string => typeof c === 'string') : [],
+      upkeepDays:
+        typeof parsed.upkeepDays === 'number' && parsed.upkeepDays >= 1 && parsed.upkeepDays <= 365
+          ? Math.round(parsed.upkeepDays)
+          : UPKEEP_DAYS,
       theme: parsed.theme === 'light' || parsed.theme === 'dark' ? parsed.theme : 'system',
       editorName: typeof parsed.editorName === 'string' ? parsed.editorName : '',
       layers: readLayers(parsed.layers),
@@ -129,6 +144,10 @@ interface AppState {
   setTheme(theme: ThemeSetting): void;
   setEditorName(name: string): void;
   setMyArea(codes: string[]): void;
+  setUpkeepDays(days: number): void;
+  /** Saves a touch through the import checks; returns field errors, or null when saved. */
+  logTouch(raw: Record<string, unknown>): Promise<Record<string, string> | null>;
+  removeTouch(id: string): Promise<void>;
   setLayers(layers: LayerSettings): void;
   setView(view: View): void;
 
@@ -207,6 +226,21 @@ export const useApp = create<AppState>((set, get) => ({
     const settings = { ...get().settings, theme };
     writeLocal(SETTINGS_KEY, settings);
     set({ settings });
+  },
+  setUpkeepDays(upkeepDays) {
+    const settings = { ...get().settings, upkeepDays };
+    writeLocal(SETTINGS_KEY, settings);
+    set({ settings });
+  },
+  async logTouch(raw) {
+    const s = get();
+    const result = saveTouch(s.data, raw, { config: s.config, editor: s.settings.editorName, today: localToday() });
+    if (!result.ok) return result.errors;
+    await get().saveTable('touches', result.data.touches);
+    return null;
+  },
+  async removeTouch(id) {
+    await get().saveTable('touches', deleteTouch(get().data, id).touches);
   },
   setMyArea(myArea) {
     const settings = { ...get().settings, myArea };

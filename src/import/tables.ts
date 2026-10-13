@@ -11,6 +11,7 @@ import {
   DECISION_ROLES,
   SEGMENTS,
   TIER_FITS,
+  TOUCH_CHANNELS,
   YES_NO_UNKNOWN,
   type Brief,
   type BriefItem,
@@ -25,7 +26,10 @@ import {
   type Provenance,
   type Segment,
   type TableName,
+  type Touch,
+  type TouchChannel,
 } from '../data/types';
+import { slugify } from '../data/names';
 import * as f from './fields';
 import type { Resolver } from './resolve';
 
@@ -232,7 +236,8 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     {
       name: 'hpe_owner',
       required: false,
-      description: 'HPE owner, by email or by name as it appears in the HPE team. A name not in the team is kept as text.',
+      description:
+        'Primary pipeline owner (the HPE seller Salesforce names), by email or by name as it appears in the HPE team. A name not in the team is kept as text.',
       aliases: [
         'hpe owner email',
         'owner',
@@ -342,6 +347,31 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     },
     ...PROVENANCE_COLUMNS,
   ],
+  touches: [
+    {
+      name: 'company',
+      required: true,
+      description: 'A company already in Companies, by name or id.',
+      aliases: ['company id', 'account', 'account name', 'customer'],
+    },
+    {
+      name: 'deal',
+      required: false,
+      description: 'The deal it was about, by op ID or deal name at that company. Empty means the account as a whole.',
+      aliases: ['op id', 'opportunity id', 'deal name', 'opportunity'],
+    },
+    { name: 'date', required: true, description: 'When it happened, YYYY-MM-DD.', aliases: ['touch date', 'when', 'contact date'] },
+    { name: 'who', required: false, description: 'Who it was with, as text.', aliases: ['with', 'contact', 'person'] },
+    {
+      name: 'channel',
+      required: false,
+      description: `One of ${TOUCH_CHANNELS.join(', ')}. Defaults to other.`,
+      aliases: ['type', 'how', 'medium'],
+    },
+    { name: 'note', required: false, description: 'Free text.', aliases: ['notes', 'summary'] },
+    { name: 'id', required: false, description: "The app's own key for the touch, in backups. Leave it empty." },
+    ...PROVENANCE_COLUMNS,
+  ],
 };
 
 /** Briefs are nested, so they come only as JSON; every other table also reads CSV, Excel, and pasted rows. */
@@ -354,6 +384,7 @@ export const TABLE_LABELS: Record<TableName, string> = {
   people: 'HPE team',
   coverage: 'Coverage',
   briefs: 'Briefs',
+  touches: 'Touches',
 };
 
 /** The key that identifies a row: re-importing a row with the same key updates it. */
@@ -381,6 +412,10 @@ export function describeKey(table: TableName, row: Dataset[TableName][number], c
       return `${(row as Coverage).person_id} on ${companyName((row as Coverage).company_id)}`;
     case 'briefs':
       return `a brief for ${companyName((row as Brief).company_id)}`;
+    case 'touches': {
+      const t = row as Touch;
+      return `a touch on ${t.date} with ${t.who || 'someone'} at ${companyName(t.company_id)}`;
+    }
     case 'companies':
       return `company ${(row as Company).name}`;
     case 'contacts':
@@ -664,6 +699,38 @@ export const PARSERS: { [T in TableName]: (r: RowReader, ctx: ParseContext) => D
     const sections = r.get('sections', (v) => briefSections(v, ctx));
     return { company_id, sections, ...provenance(r, ctx) };
   },
+
+  touches(r, ctx) {
+    const company_id = r.get('company', (v) => {
+      const found = ctx.resolver.findCompany(f.required(v, 'a company'));
+      if (!found) throw new f.FieldError(`"${f.text(v)}" is not in Companies; import companies first`);
+      return found.id;
+    });
+    const deal_id = r.get('deal', (v) => {
+      if (!f.text(v) || !company_id) return null;
+      const found = ctx.resolver.findDeal(company_id, f.text(v));
+      if (!found) throw new f.FieldError(`"${f.text(v)}" is not a deal at this company`);
+      return found.id;
+    });
+    const date = r.get('date', (v) => f.date(v, 'a date'));
+    if (date && date > ctx.today) r.fail('date', `${date} is in the future`);
+    const who = r.get('who', f.text);
+    const channel = r.get('channel', (v) =>
+      f.oneOf<TouchChannel>(v, TOUCH_CHANNELS, 'other', {
+        phone: 'call',
+        mail: 'email',
+        'e-mail': 'email',
+        teams: 'meeting',
+        zoom: 'meeting',
+      }),
+    );
+    const note = r.get('note', f.text);
+    // Re-importing the same touch updates it rather than adding a second one.
+    const id =
+      r.get('id', f.optionalId) ??
+      `touch-${date}-${company_id}-${deal_id ?? 'account'}-${channel}-${slugify(who || 'someone')}`.toLowerCase();
+    return { id, company_id, deal_id: deal_id ?? null, date, who, channel, note, ...provenance(r, ctx) };
+  },
 };
 
 function briefSections(v: unknown, ctx: ParseContext): Record<BriefSection, BriefItem[]> {
@@ -712,7 +779,12 @@ const TABLE_NAME_LABEL: Partial<Record<TableName, string>> = {
   deals: 'Deal name',
   people: 'Name',
 };
-const DEAL_LABELS: Record<string, string> = { state: "Company's state", city: "Company's city", contacts: 'Contacts on the deal' };
+const DEAL_LABELS: Record<string, string> = {
+  state: "Company's state",
+  city: "Company's city",
+  contacts: 'Contacts on the deal',
+  hpe_owner: 'Primary pipeline owner',
+};
 
 /** The import screen's name for a column: "Op ID", "Deal name", "Company's state". */
 export function columnLabel(table: TableName, name: string): string {

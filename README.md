@@ -144,7 +144,7 @@ An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. T
 | `amount` | no | Deal value in US dollars: 1250000, $1,250,000, or 1.25M. | value, deal value, total, total value, tcv, acv, revenue, amount usd, opportunity amount, deal size, price, total amount |
 | `close_date` | no | Expected or actual close: 2026-10-15, 10/15/2026, or a spreadsheet date. | close, close date, expected close, expected close date, closing date, est close date, estimated close date |
 | `forecast_category` | no | Free text, such as Pipeline, Upside, or Commit. | forecast, forecast category, category |
-| `hpe_owner` | no | HPE owner, by email or by name as it appears in the HPE team. A name not in the team is kept as text. | hpe owner email, owner, opportunity owner, deal owner, account owner, rep, sales rep, account manager, am |
+| `hpe_owner` | no | Primary pipeline owner (the HPE seller Salesforce names), by email or by name as it appears in the HPE team. A name not in the team is kept as text. | hpe owner email, owner, opportunity owner, deal owner, account owner, rep, sales rep, account manager, am |
 | `partner` | no | Partner company by name or id. A partner not in Companies yet is added as one. | partner id, partner name, partner account, primary partner, reseller, channel partner, var, distributor |
 | `contacts` | no | Contacts on the deal at its company, by name or email, separated by semicolons. New names are added to Contacts. | contact, primary contact, contact name |
 | `next_step` | no | Free text. | next step, next steps |
@@ -195,6 +195,23 @@ A JSON list of objects, or an object with a `briefs` list. Each object has these
 | --- | --- | --- | --- |
 | `company` | yes | A company already in Companies, by name or id. One brief per company; a new brief replaces the old one. | company id, prospect id |
 | `sections` | yes | Object with any of what_they_do, virtualization_signals, filings, recent_it_news, tech_stack, broader_trends. Each is a list of items with text, source_url, source_date (YYYY-MM-DD), and confidence (confirmed, reported, inferred). |  |
+| `source` | no | Where the row came from, as text or a URL. Defaults to the file name. |  |
+| `verified_at` | no | Date someone last checked the row. | verified, verified on |
+| `updated_by` | no | Who made the file. Defaults to "import". |  |
+
+### Touches
+
+An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. The column names below match automatically, and so do the other names listed with each; any other column can be matched by hand.
+
+| Column | Required | Meaning | Also matches |
+| --- | --- | --- | --- |
+| `company` | yes | A company already in Companies, by name or id. | company id, account, account name, customer |
+| `deal` | no | The deal it was about, by op ID or deal name at that company. Empty means the account as a whole. | op id, opportunity id, deal name, opportunity |
+| `date` | yes | When it happened, YYYY-MM-DD. | touch date, when, contact date |
+| `who` | no | Who it was with, as text. | with, contact, person |
+| `channel` | no | One of email, call, meeting, other. Defaults to other. | type, how, medium |
+| `note` | no | Free text. | notes, summary |
+| `id` | no | The app's own key for the touch, in backups. Leave it empty. |  |
 | `source` | no | Where the row came from, as text or a URL. Defaults to the file name. |  |
 | `verified_at` | no | Date someone last checked the row. | verified, verified on |
 | `updated_by` | no | Who made the file. Defaults to "import". |  |
