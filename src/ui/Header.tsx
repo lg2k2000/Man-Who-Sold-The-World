@@ -23,6 +23,9 @@ export function Header({ config, homeId }: Props) {
   const focusTerritory = useApp((s) => s.focusTerritory);
   const view = useApp((s) => s.view);
   const setView = useApp((s) => s.setView);
+  const view3d = useApp((s) => s.view3d);
+  const setView3d = useApp((s) => s.setView3d);
+  const editing = useApp((s) => s.editingTerritories);
   const home = homeId === MY_AREA_ID ? { name: 'My area' } : config.territories.find((t) => t.id === homeId);
 
   return (
@@ -61,6 +64,16 @@ export function Header({ config, homeId }: Props) {
             </button>
             <button type="button" className="btn" onClick={() => focusTerritory(null)}>
               North America
+            </button>
+            <button
+              type="button"
+              className={`btn${view3d ? ' on' : ''}`}
+              aria-pressed={view3d}
+              disabled={editing}
+              onClick={() => setView3d(!view3d)}
+              title="Show open pipeline as 3D columns"
+            >
+              3D
             </button>
           </>
         )}

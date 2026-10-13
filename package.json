@@ -19,6 +19,8 @@
     "snapshot": "node scripts/make-snapshot.mjs"
   },
   "dependencies": {
+    "@deck.gl/core": "9.4.0",
+    "@deck.gl/layers": "9.4.0",
     "d3-geo": "3.1.1",
     "d3-selection": "3.0.0",
     "d3-transition": "3.0.1",

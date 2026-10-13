@@ -1,8 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MY_AREA_ID } from './data/derive';
 import { loadBoundaries, type Boundaries } from './map/geo';
 import { loadDetail, type Detail } from './map/detail';
 import { MapView } from './map/MapView';
+
+// deck.gl is large, so the 3D view loads only when someone turns it on.
+const Map3D = lazy(() => import('./map/Map3D').then((m) => ({ default: m.Map3D })));
 import { HawaiiInset } from './map/HawaiiInset';
 import { Header } from './ui/Header';
 import { FilterBar } from './ui/FilterBar';
@@ -45,6 +48,15 @@ export function App() {
   const editing = useApp((s) => s.editingTerritories);
   const storeProblem = useApp((s) => s.storeProblem);
   const layers = useApp((s) => s.settings.layers);
+  const view3d = useApp((s) => s.view3d);
+  const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => setSystemDark(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const dark = theme === 'dark' || (theme === 'system' && systemDark);
 
   const myArea = useApp((s) => s.settings.myArea);
   const homeId =
@@ -146,7 +158,20 @@ export function App() {
               </div>
             )}
             {!boundaries && !error && <div className="map-loading">Loading map</div>}
-            {boundaries && (
+            {boundaries && view3d && !editing && (
+              <Suspense fallback={<div className="map-loading">Loading the 3D view</div>}>
+                <Map3D
+                  boundaries={boundaries}
+                  detail={detail}
+                  config={config}
+                  index={regionIndex}
+                  size={stage}
+                  dark={dark}
+                  insets={{ left: 300, right: panelOpen ? PANEL_WIDTH : 0 }}
+                />
+              </Suspense>
+            )}
+            {boundaries && !(view3d && !editing) && (
               <>
                 <MapView
                   boundaries={boundaries}
