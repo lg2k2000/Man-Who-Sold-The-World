@@ -20,6 +20,33 @@ export function isOpenDeal(d: Deal): boolean {
   return !/^\s*(closed\b|won\b|lost\b)/i.test(d.stage);
 }
 
+/** Where an open deal stands, from first conversations to signing; "unset" when the stage name says nothing. */
+export type StageBand = 'early' | 'active' | 'late' | 'unset';
+export const STAGE_BANDS: StageBand[] = ['early', 'active', 'late', 'unset'];
+export const STAGE_BAND_LABELS: Record<StageBand, string> = {
+  early: 'Early: discovery to qualified',
+  active: 'Active: POC, solution, proposal',
+  late: 'Late: negotiation to contract',
+  unset: 'Stage not set',
+};
+
+/** Reads a stage name loosely, because Salesforce, the Notion tracker, and manager sheets name stages differently. */
+export function stageBand(stage: string): StageBand {
+  const s = stage.toLowerCase();
+  if (/negotiat|contract|procure|commit|verbal|close/.test(s)) return 'late';
+  if (/poc|proof|technical win|propos|solution|demo|evaluat/.test(s)) return 'active';
+  if (/discover|understand|qualif|nurture|prospect|fridge|unresponsive|on hold|lead|intro/.test(s)) return 'early';
+  return 'unset';
+}
+
+/** The furthest stage among a company's open deals, or null when it has none. */
+export function companyStageBand(index: DataIndex, companyId: string): StageBand | null {
+  const open = (index.dealsByCompany.get(companyId) ?? []).filter(isOpenDeal);
+  if (!open.length) return null;
+  const rank: Record<StageBand, number> = { unset: 0, early: 1, active: 2, late: 3 };
+  return open.map((d) => stageBand(d.stage)).reduce((a, b) => (rank[b] > rank[a] ? b : a));
+}
+
 export function isWonDeal(d: Deal): boolean {
   return /^\s*(closed\s*[-:]?\s*won|won)\b/i.test(d.stage);
 }

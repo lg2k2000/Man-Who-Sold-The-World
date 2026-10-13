@@ -99,6 +99,8 @@ interface AppState {
   regionIndex: Map<string, RegionAssignment>;
   draftStatus: DraftStatus;
   editingTerritories: boolean;
+  /** The map shows open pipeline as 3D columns instead of the flat map. */
+  view3d: boolean;
 
   /** Territory in focus: the map dims the rest and pins are limited to it. Null means all. */
   focusTerritoryId: string | null;
@@ -131,6 +133,7 @@ interface AppState {
   setView(view: View): void;
 
   setEditingTerritories(on: boolean): void;
+  setView3d(on: boolean): void;
   updateConfig(next: TerritoryConfig): void;
   discardDraft(): void;
   acceptStaleDraft(): void;
@@ -175,6 +178,7 @@ export const useApp = create<AppState>((set, get) => ({
   regionIndex: buildRegionIndex(initialDraft.config),
   draftStatus: initialDraft.status,
   editingTerritories: false,
+  view3d: false,
 
   focusTerritoryId: null,
   selectedState: null,
@@ -219,6 +223,9 @@ export const useApp = create<AppState>((set, get) => ({
     set({ view });
   },
 
+  setView3d(view3d) {
+    set({ view3d, editingTerritories: view3d ? false : get().editingTerritories });
+  },
   setEditingTerritories(on) {
     set({ editingTerritories: on, panel: on ? null : get().panel });
   },

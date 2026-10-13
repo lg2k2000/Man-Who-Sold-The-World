@@ -2760,3 +2760,84 @@ textarea.text-input {
 .issues td.num {
   white-space: nowrap;
 }
+
+/* 3D view */
+
+.topbar .btn.on {
+  border-color: var(--hpe-green);
+  background: var(--hpe-green);
+  color: #0b1f1a;
+  font-weight: 700;
+}
+
+.map3d,
+.map3d-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.map3d-legend {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  width: 268px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.map3d-legend h2 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.map3d-total {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.map3d-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.map3d-legend ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.map3d-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+}
+
+.map3d-legend .swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.deck-tip {
+  padding: 8px 10px !important;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow);
+  color: var(--text) !important;
+  font: 13px/1.45 inherit !important;
+}

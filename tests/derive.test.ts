@@ -12,6 +12,7 @@ import {
   money,
   moneyShort,
   MY_AREA_ID,
+  stageBand,
   NO_FILTERS,
   activeFilterCount,
   orgTree,
@@ -230,5 +231,31 @@ describe('org tree', () => {
     ]);
     expect(tree.map((n) => n.item.id)).toEqual(['a', 'c', 'd', 'e']);
     expect(tree[0]!.children.map((n) => n.item.id)).toEqual(['b']);
+  });
+});
+
+describe('stageBand', () => {
+  it('reads Notion and Salesforce stage names into bands', () => {
+    expect(['Discovery', 'Qualified - Deferred', 'Nurture', '01 - Understand Customer', 'On Hold - HPE'].map(stageBand)).toEqual([
+      'early',
+      'early',
+      'early',
+      'early',
+      'early',
+    ]);
+    expect(['POC - SA Led', 'Technical Win', 'Proposal', '04A - Develop Solution', 'Demo'].map(stageBand)).toEqual([
+      'active',
+      'active',
+      'active',
+      'active',
+      'active',
+    ]);
+    expect(['Negotiation', 'Contracting', 'Procurement', '05 - Negotiate & Close'].map(stageBand)).toEqual([
+      'late',
+      'late',
+      'late',
+      'late',
+    ]);
+    expect(['Not set', '', 'Something else'].map(stageBand)).toEqual(['unset', 'unset', 'unset']);
   });
 });
