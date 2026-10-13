@@ -206,7 +206,16 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   }, [settled, size]);
   const highlight = useMemo(() => new Set(highlightCodes ?? []), [highlightCodes]);
 
-  const filtered = useMemo(() => filterCompanies(data, dataIndex, config, filters), [data, dataIndex, config, filters]);
+  // Picking a territory frames the map and dims the rest; pins outside it still show, drawn lighter,
+  // because a viewer's deals often sit outside the territory they own this year.
+  const filtered = useMemo(
+    () => filterCompanies(data, dataIndex, config, { ...filters, territoryId: null }),
+    [data, dataIndex, config, filters],
+  );
+  const inTerritory = useMemo(
+    () => (filters.territoryId ? territoryCodes(config, filters.territoryId) : null),
+    [config, filters.territoryId],
+  );
 
   // Pins show when a state or territory is chosen or the viewer has zoomed in;
   // otherwise each state shows a count.
@@ -226,8 +235,8 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const pins = useMemo(() => {
     if (!geo || scope === 'counts' || scope === 'none') return [];
     const list = scope === 'state' ? filtered.filter((p) => p.state === selectedState) : filtered;
-    return placePins(list, geo, dataIndex, locate);
-  }, [geo, scope, filtered, selectedState, dataIndex, locate]);
+    return placePins(list, geo, dataIndex, locate, inTerritory);
+  }, [geo, scope, filtered, selectedState, dataIndex, locate, inTerritory]);
 
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
@@ -243,7 +252,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const labelObstacles = useMemo(() => {
     const k = zoomK;
     const around = (x: number, y: number, r: number) => ({ x0: x * k - r, y0: y * k - r, x1: x * k + r, y1: y * k + r });
-    return [...pins.map((p) => around(p.x, p.y, 7)), ...counts.map((c) => around(c.x, c.y, 13))];
+    return [...pins.map((p) => around(p.x, p.y, 9)), ...counts.map((c) => around(c.x, c.y, 13))];
   }, [pins, counts, zoomK]);
 
   // Keyboard order: territories as the legend lists them, regions by name, unassigned last.
@@ -449,7 +458,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
               {orderedPins.map((p) => (
                 <g key={p.prospect.id} transform={`translate(${p.x},${p.y})`}>
                   <g
-                    className={`pin${p.unverified ? ' unverified' : ''}${p.overlap ? ' overlap' : ''}${selectedProspect === p.prospect.id ? ' selected' : ''}`}
+                    className={`pin${p.unverified ? ' unverified' : ''}${p.outside ? ' outside' : ''}${p.overlap ? ' overlap' : ''}${selectedProspect === p.prospect.id ? ' selected' : ''}`}
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
@@ -462,8 +471,8 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                       openCompany(p.prospect.id);
                     }}
                   >
-                    {p.overlap && <circle className="pin-halo" r={8.5} />}
-                    <circle className="pin-dot" r={selectedProspect === p.prospect.id ? 7.5 : 5.5} />
+                    {p.overlap && <circle className="pin-halo" r={10.5} />}
+                    <circle className="pin-dot" r={selectedProspect === p.prospect.id ? 9 : 7} />
                     <title>{pinLabel(p, dataIndex)}</title>
                   </g>
                 </g>
@@ -567,6 +576,8 @@ interface PlacedPin {
   y: number;
   unverified: boolean;
   overlap: boolean;
+  /** Outside the territory picked in the filter bar, so drawn lighter. */
+  outside: boolean;
 }
 
 /**
@@ -582,14 +593,16 @@ function placePins(
   },
   index: DataIndex,
   locate: CityLocator | null,
+  inTerritory: Set<string> | null = null,
 ): PlacedPin[] {
   const unverifiedSeen = new Map<string, number>();
   const out: PlacedPin[] = [];
   for (const p of list) {
     const overlap = hasOverlap(index, p.id);
+    const outside = inTerritory !== null && !inTerritory.has(p.state!);
     if (p.lat !== null && p.lng !== null) {
       const xy = geo.projection([p.lng, p.lat]);
-      if (xy) out.push({ prospect: p, x: xy[0], y: xy[1], unverified: false, overlap });
+      if (xy) out.push({ prospect: p, x: xy[0], y: xy[1], unverified: false, overlap, outside });
       continue;
     }
     // Only companies with a state reach here (see isPinned).
@@ -608,6 +621,7 @@ function placePins(
       y: center[1] + radius * Math.sin(angle),
       unverified: true,
       overlap,
+      outside,
     });
   }
   // Overlap pins draw last so their halos stay visible.

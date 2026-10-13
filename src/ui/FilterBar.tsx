@@ -106,7 +106,11 @@ export function FilterBar({ config, regionNames }: Props) {
       )}
       <span className="fb-spacer" />
       <span className="fb-count" aria-live="polite">
-        {pinned === 0 ? 'No companies on the map' : `${matching.length} of ${pinned} companies`}
+        {pinned === 0
+          ? 'No companies on the map'
+          : filters.territoryId && !selectedState
+            ? `${matching.length} in ${config.territories.find((t) => t.id === filters.territoryId)?.name ?? 'this territory'}, ${pinned} on the map`
+            : `${matching.length} of ${pinned} companies`}
       </span>
       {active > 0 && (
         <button type="button" className="link" onClick={clearFilters}>
