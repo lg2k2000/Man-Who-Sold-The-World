@@ -18,6 +18,8 @@ const DRAFT_KEY = 'tc.territoryDraft.v1';
 interface Settings {
   /** The viewer's own territory; the map opens focused on it. Null means the config default. */
   homeTerritoryId: string | null;
+  /** States and provinces the viewer works now, framed as "My area"; empty means none set. */
+  myArea: string[];
   theme: ThemeSetting;
   /** Name written to updated_by when the viewer edits a record. */
   editorName: string;
@@ -26,13 +28,14 @@ interface Settings {
 }
 
 function readSettings(): Settings {
-  const fallback: Settings = { homeTerritoryId: null, theme: 'system', editorName: '', layers: { ...DEFAULT_LAYERS } };
+  const fallback: Settings = { homeTerritoryId: null, myArea: [], theme: 'system', editorName: '', layers: { ...DEFAULT_LAYERS } };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<Settings>;
     return {
       homeTerritoryId: typeof parsed.homeTerritoryId === 'string' ? parsed.homeTerritoryId : null,
+      myArea: Array.isArray(parsed.myArea) ? parsed.myArea.filter((c): c is string => typeof c === 'string') : [],
       theme: parsed.theme === 'light' || parsed.theme === 'dark' ? parsed.theme : 'system',
       editorName: typeof parsed.editorName === 'string' ? parsed.editorName : '',
       layers: readLayers(parsed.layers),
@@ -123,6 +126,7 @@ interface AppState {
   setHomeTerritory(id: string | null): void;
   setTheme(theme: ThemeSetting): void;
   setEditorName(name: string): void;
+  setMyArea(codes: string[]): void;
   setLayers(layers: LayerSettings): void;
   setView(view: View): void;
 
@@ -193,6 +197,11 @@ export const useApp = create<AppState>((set, get) => ({
   },
   setTheme(theme) {
     const settings = { ...get().settings, theme };
+    writeLocal(SETTINGS_KEY, settings);
+    set({ settings });
+  },
+  setMyArea(myArea) {
+    const settings = { ...get().settings, myArea };
     writeLocal(SETTINGS_KEY, settings);
     set({ settings });
   },

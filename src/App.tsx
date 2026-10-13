@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { MY_AREA_ID } from './data/derive';
 import { loadBoundaries, type Boundaries } from './map/geo';
 import { loadDetail, type Detail } from './map/detail';
 import { MapView } from './map/MapView';
@@ -45,7 +46,13 @@ export function App() {
   const storeProblem = useApp((s) => s.storeProblem);
   const layers = useApp((s) => s.settings.layers);
 
-  const homeId = savedHome && config.territories.some((t) => t.id === savedHome) ? savedHome : config.default_focus;
+  const myArea = useApp((s) => s.settings.myArea);
+  const homeId =
+    savedHome === MY_AREA_ID && myArea.length
+      ? MY_AREA_ID
+      : savedHome && config.territories.some((t) => t.id === savedHome)
+        ? savedHome
+        : config.default_focus;
 
   const regionNames = useMemo(() => new Map((boundaries?.regions ?? []).map((r) => [r.properties.code, r.properties.name])), [boundaries]);
 

@@ -13,7 +13,7 @@ import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
-import { filterCompanies, hasOverlap, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
+import { filterCompanies, hasOverlap, MY_AREA_ID, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
 import type { Company } from '../data/types';
 
 export interface MapInsets {
@@ -52,6 +52,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const zoomK = settled.k;
 
   const focusId = useApp((s) => s.focusTerritoryId);
+  const myArea = useApp((s) => s.settings.myArea);
   const selectedState = useApp((s) => s.selectedState);
   const highlightCodes = useApp((s) => s.highlightCodes);
   const frame = useApp((s) => s.frame);
@@ -164,7 +165,9 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
       target = zoomIdentity.translate(x, y).scale(k);
     };
     if (frame.kind === 'territory') {
-      const codes = territoryCodes(config, frame.id);
+      const codes = territoryCodes(config, frame.id, myArea);
+      // Hawaii has its own inset, so framing it with the mainland would zoom out over the Pacific.
+      if (frame.id === MY_AREA_ID && codes.size > 1) codes.delete('US-HI');
       fit(geo.regions.filter((r) => codes.has(r.code)).map((r) => r.bounds));
     } else if (frame.kind === 'codes') {
       const codes = new Set(frame.codes);
@@ -189,7 +192,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frameRequest, geo, size, config]);
 
-  const focusCodes = useMemo(() => (focusId ? territoryCodes(config, focusId) : null), [config, focusId]);
+  const focusCodes = useMemo(() => (focusId ? territoryCodes(config, focusId, myArea) : null), [config, focusId, myArea]);
 
   const regionLabelInputs = useMemo(
     () =>
@@ -209,12 +212,12 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   // Picking a territory frames the map and dims the rest; pins outside it still show, drawn lighter,
   // because a viewer's deals often sit outside the territory they own this year.
   const filtered = useMemo(
-    () => filterCompanies(data, dataIndex, config, { ...filters, territoryId: null }),
-    [data, dataIndex, config, filters],
+    () => filterCompanies(data, dataIndex, config, { ...filters, territoryId: null }, myArea),
+    [data, dataIndex, config, filters, myArea],
   );
   const inTerritory = useMemo(
-    () => (filters.territoryId ? territoryCodes(config, filters.territoryId) : null),
-    [config, filters.territoryId],
+    () => (filters.territoryId ? territoryCodes(config, filters.territoryId, myArea) : null),
+    [config, filters.territoryId, myArea],
   );
 
   // Pins show when a state or territory is chosen or the viewer has zoomed in;
@@ -238,6 +241,17 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     return placePins(list, geo, dataIndex, locate, inTerritory);
   }, [geo, scope, filtered, selectedState, dataIndex, locate, inTerritory]);
 
+  // Pin size follows the company's open pipeline on a square-root scale, so one large deal
+  // does not dwarf the rest; a company with no open pipeline keeps the smallest size.
+  const pinRadius = useMemo(() => {
+    let max = 0;
+    for (const v of dataIndex.openPipeline.values()) max = Math.max(max, v);
+    return (id: string) => {
+      const v = dataIndex.openPipeline.get(id) ?? 0;
+      return v > 0 && max > 0 ? PIN_MIN + 1 + (PIN_MAX - PIN_MIN - 1) * Math.sqrt(v / max) : PIN_MIN;
+    };
+  }, [dataIndex]);
+
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
     const n = new Map<string, number>();
@@ -252,8 +266,8 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const labelObstacles = useMemo(() => {
     const k = zoomK;
     const around = (x: number, y: number, r: number) => ({ x0: x * k - r, y0: y * k - r, x1: x * k + r, y1: y * k + r });
-    return [...pins.map((p) => around(p.x, p.y, 9)), ...counts.map((c) => around(c.x, c.y, 13))];
-  }, [pins, counts, zoomK]);
+    return [...pins.map((p) => around(p.x, p.y, pinRadius(p.prospect.id) + 2)), ...counts.map((c) => around(c.x, c.y, 13))];
+  }, [pins, counts, zoomK, pinRadius]);
 
   // Keyboard order: territories as the legend lists them, regions by name, unassigned last.
   const regionOrder = useMemo(() => {
@@ -331,9 +345,11 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const selectedProspect = panel?.kind === 'company' ? panel.id : null;
   // The selected pin draws last so it sits on top.
+  // Larger pins draw first so smaller ones on top stay clickable; overlap halos and the selected pin go last.
+  const bySize = [...pins].sort((a, b) => Number(a.overlap) - Number(b.overlap) || pinRadius(b.prospect.id) - pinRadius(a.prospect.id));
   const orderedPins = selectedProspect
-    ? [...pins.filter((p) => p.prospect.id !== selectedProspect), ...pins.filter((p) => p.prospect.id === selectedProspect)]
-    : pins;
+    ? [...bySize.filter((p) => p.prospect.id !== selectedProspect), ...bySize.filter((p) => p.prospect.id === selectedProspect)]
+    : bySize;
 
   const pinOrder = useMemo(
     () => [...pins].sort((a, b) => a.prospect.name.localeCompare(b.prospect.name, undefined, { numeric: true })).map((p) => p.prospect.id),
@@ -471,8 +487,8 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                       openCompany(p.prospect.id);
                     }}
                   >
-                    {p.overlap && <circle className="pin-halo" r={10.5} />}
-                    <circle className="pin-dot" r={selectedProspect === p.prospect.id ? 9 : 7} />
+                    {p.overlap && <circle className="pin-halo" r={pinRadius(p.prospect.id) + 3.5} />}
+                    <circle className="pin-dot" r={pinRadius(p.prospect.id) + (selectedProspect === p.prospect.id ? 2 : 0)} />
                     <title>{pinLabel(p, dataIndex)}</title>
                   </g>
                 </g>
@@ -569,6 +585,10 @@ function pinLabel(p: PlacedPin, index: DataIndex): string {
       .join('. ') + '.'
   );
 }
+
+/** Pin radius in screen pixels, from no open pipeline to the largest. */
+const PIN_MIN = 6;
+const PIN_MAX = 16;
 
 interface PlacedPin {
   prospect: Company;

@@ -286,6 +286,19 @@ input {
   background: var(--chrome-control-hover);
 }
 
+/* Buttons inside a header popover sit on the page surface, not the dark header. */
+.topbar .popover .btn {
+  justify-self: start;
+  border-color: var(--hpe-navy);
+  background: var(--hpe-navy);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.topbar .popover .btn:hover {
+  background: color-mix(in srgb, #000000 15%, var(--hpe-navy));
+}
+
 .btn.icon {
   display: inline-grid;
   place-items: center;
