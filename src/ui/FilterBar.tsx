@@ -1,6 +1,20 @@
 import { useMemo } from 'react';
 import type { TerritoryConfig } from '../config/territories';
-import { activeFilterCount, filterCompanies, hasOverlap, isPinned, MY_AREA_ID, PIPELINE_STEPS, type Filters } from '../data/derive';
+import {
+  activeFilterCount,
+  CLOSE_WINDOW_LABELS,
+  CLOSE_WINDOWS,
+  coverageGaps,
+  filterCompanies,
+  hasOverlap,
+  isPinned,
+  MY_AREA_ID,
+  PIPELINE_STEPS,
+  quarterLabel,
+  todayLocal,
+  type CloseWindow,
+  type Filters,
+} from '../data/derive';
 import { TIER_FITS, TIER_FIT_LABELS, type TierFit } from '../data/types';
 import { useApp } from '../state/app';
 
@@ -26,6 +40,11 @@ export function FilterBar({ config, regionNames }: Props) {
   }, [data, index, config, filters, selectedState, myArea]);
   // With no coverage imported, no company can have three roles; the switch says so instead of emptying the map.
   const overlapCount = useMemo(() => data.companies.filter((c) => hasOverlap(index, c.id)).length, [data.companies, index]);
+  const gapCount = useMemo(() => {
+    const known = data.coverage.length > 0;
+    return data.companies.filter((c) => c.type !== 'partner' && coverageGaps(index, c.id, known).length > 0).length;
+  }, [data.companies, data.coverage.length, index]);
+  const nowQuarter = quarterLabel(todayLocal(), config.fiscal_year_start);
   const areaName =
     filters.territoryId === MY_AREA_ID
       ? 'My area'
@@ -53,7 +72,7 @@ export function FilterBar({ config, regionNames }: Props) {
         </select>
       </label>
       <label className="fb-field">
-        <span>Tier fit</span>
+        <span className="visually-hidden">Tier fit</span>
         <select
           aria-label="Tier fit"
           value={filters.tierFit ?? ''}
@@ -68,7 +87,7 @@ export function FilterBar({ config, regionNames }: Props) {
         </select>
       </label>
       <label className="fb-field">
-        <span>Partner</span>
+        <span className="visually-hidden">Partner</span>
         <select
           aria-label="Partner"
           value={filters.partnerId ?? ''}
@@ -84,9 +103,9 @@ export function FilterBar({ config, regionNames }: Props) {
         </select>
       </label>
       <label className="fb-field">
-        <span>Deals</span>
+        <span className="visually-hidden">Deals</span>
         <select aria-label="Deals" value={dealChoice(filters)} onChange={(e) => setFilters(dealFilter(e.target.value))}>
-          <option value="any">Any</option>
+          <option value="any">Any deals</option>
           <option value="yes">Has an open deal</option>
           {PIPELINE_STEPS.map((n) => (
             <option key={n} value={String(n)}>
@@ -95,6 +114,34 @@ export function FilterBar({ config, regionNames }: Props) {
           ))}
           <option value="no">No open deal</option>
         </select>
+      </label>
+      <label className="fb-field">
+        <span className="visually-hidden">Closing</span>
+        <select
+          aria-label="Closing"
+          value={filters.closeWindow}
+          onChange={(e) => setFilters({ closeWindow: e.target.value as CloseWindow | 'any' })}
+        >
+          <option value="any">Closing any time</option>
+          {CLOSE_WINDOWS.map((w) => (
+            <option key={w} value={w}>
+              {w === 'this-quarter' ? `This quarter (${nowQuarter})` : CLOSE_WINDOW_LABELS[w]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label
+        className={`fb-toggle${filters.gapsOnly ? ' on' : ''}${gapCount === 0 && !filters.gapsOnly ? ' off' : ''}`}
+        title={`Accounts whose open deals have no partner or no primary pipeline owner${data.coverage.length ? ', or with no storage rep' : ''} (${gapCount})`}
+      >
+        <input
+          type="checkbox"
+          checked={filters.gapsOnly}
+          disabled={gapCount === 0 && !filters.gapsOnly}
+          onChange={(e) => setFilters({ gapsOnly: e.target.checked })}
+        />
+        <span className="gap-key" aria-hidden="true" />
+        Coverage gaps
       </label>
       <label
         className={`fb-toggle${filters.overlapOnly ? ' on' : ''}${overlapCount === 0 && !filters.overlapOnly ? ' off' : ''}`}
@@ -111,7 +158,7 @@ export function FilterBar({ config, regionNames }: Props) {
           onChange={(e) => setFilters({ overlapOnly: e.target.checked })}
         />
         <span className="overlap-key" aria-hidden="true" />
-        3+ coverage roles
+        3+ roles
       </label>
       {selectedState && (
         <span className="chip">
@@ -126,8 +173,8 @@ export function FilterBar({ config, regionNames }: Props) {
         {pinned === 0
           ? 'No companies on the map'
           : filters.territoryId && !selectedState
-            ? `${matching.length} in ${areaName}, ${pinned} on the map`
-            : `${matching.length} of ${pinned} companies`}
+            ? `${matching.length} in ${areaName} · ${pinned} on map`
+            : `${matching.length} of ${pinned}`}
       </span>
       {active > 0 && (
         <button type="button" className="link" onClick={clearFilters}>

@@ -236,7 +236,8 @@ export const COLUMNS: Record<TableName, ColumnSpec[]> = {
     {
       name: 'hpe_owner',
       required: false,
-      description: 'HPE owner, by email or by name as it appears in the HPE team. A name not in the team is kept as text.',
+      description:
+        'Primary pipeline owner (the HPE seller Salesforce names), by email or by name as it appears in the HPE team. A name not in the team is kept as text.',
       aliases: [
         'hpe owner email',
         'owner',
@@ -778,7 +779,12 @@ const TABLE_NAME_LABEL: Partial<Record<TableName, string>> = {
   deals: 'Deal name',
   people: 'Name',
 };
-const DEAL_LABELS: Record<string, string> = { state: "Company's state", city: "Company's city", contacts: 'Contacts on the deal' };
+const DEAL_LABELS: Record<string, string> = {
+  state: "Company's state",
+  city: "Company's city",
+  contacts: 'Contacts on the deal',
+  hpe_owner: 'Primary pipeline owner',
+};
 
 /** The import screen's name for a column: "Op ID", "Deal name", "Company's state". */
 export function columnLabel(table: TableName, name: string): string {

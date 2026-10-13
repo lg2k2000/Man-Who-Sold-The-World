@@ -11,4 +11,4 @@ export const configProblems: string[] = parsed.success
 /** The territory config committed in config/territories.json, validated once at startup. */
 export const committedConfig: TerritoryConfig = parsed.success
   ? parsed.data
-  : { fiscal_year: '', source: '', default_focus: '', territories: [] };
+  : { fiscal_year: '', fiscal_year_start: '11-01', source: '', default_focus: '', territories: [] };

@@ -12,6 +12,11 @@ import {
   money,
   moneyShort,
   MY_AREA_ID,
+  closeWindow,
+  coverageGaps,
+  fiscalQuarter,
+  quarterLabel,
+  type Filters,
   stageBand,
   NO_FILTERS,
   activeFilterCount,
@@ -257,5 +262,64 @@ describe('stageBand', () => {
       'late',
     ]);
     expect(['Not set', '', 'Something else'].map(stageBand)).toEqual(['unset', 'unset', 'unset']);
+  });
+});
+
+describe('fiscal calendar', () => {
+  it('starts FY27 on 1 November 2026, with quarters of three months', () => {
+    expect(fiscalQuarter('2026-11-01')).toEqual({ fy: 2027, q: 1 });
+    expect(fiscalQuarter('2026-10-31')).toEqual({ fy: 2026, q: 4 });
+    expect(fiscalQuarter('2027-01-31')).toEqual({ fy: 2027, q: 1 });
+    expect(fiscalQuarter('2027-02-01')).toEqual({ fy: 2027, q: 2 });
+    expect(fiscalQuarter('2027-10-31')).toEqual({ fy: 2027, q: 4 });
+    expect(quarterLabel('2026-12-15')).toBe('FY27 Q1');
+    expect(fiscalQuarter('2026-03-15', '01-01')).toEqual({ fy: 2026, q: 1 });
+  });
+
+  it('puts a close date in a window against today', () => {
+    const today = '2026-11-10';
+    expect(closeWindow('2026-11-01', today)).toBe('past');
+    expect(closeWindow('2027-01-31', today)).toBe('this-quarter');
+    expect(closeWindow('2027-02-01', today)).toBe('next-quarter');
+    expect(closeWindow('2027-05-01', today)).toBe('later');
+    expect(closeWindow(null, today)).toBe('none');
+  });
+
+  it('filters companies by when their open deals close', () => {
+    const d = dataset({
+      companies: [company(1, 'US-WA'), company(2, 'US-OR'), company(3, 'US-CA')],
+      deals: [
+        deal(1, 'co-1', 'Discovery', { close_date: '2026-12-01' }),
+        deal(2, 'co-2', 'Discovery', { close_date: '2027-03-01' }),
+        deal(3, 'co-3', 'Closed Won', { close_date: '2026-12-01' }),
+      ],
+    });
+    const index = indexDataset(d);
+    const ids = (w: Filters['closeWindow']) =>
+      filterCompanies(d, index, config, { ...NO_FILTERS, closeWindow: w }, [], '2026-11-10').map((c) => c.id);
+    expect(ids('this-quarter')).toEqual(['co-1']);
+    expect(ids('next-quarter')).toEqual(['co-2']);
+  });
+});
+
+describe('coverage gaps', () => {
+  it('flags open deals with no partner or owner, and a missing storage rep once coverage exists', () => {
+    const storage = person('S', ['storage']);
+    const d = dataset({
+      people: [storage],
+      companies: [company(1, 'US-WA'), company(2, 'US-OR'), company(3, 'US-CA')],
+      deals: [
+        deal(1, 'co-1', 'Discovery', { partner_id: 'partner-1', owner_name: 'Someone' }),
+        deal(2, 'co-2', 'Discovery'),
+        deal(3, 'co-3', 'Closed Won'),
+      ],
+      coverage: [{ person_id: storage.id, company_id: 'co-1', ...prov }],
+    });
+    const index = indexDataset(d);
+    expect(coverageGaps(index, 'co-1', true)).toEqual([]);
+    expect(coverageGaps(index, 'co-2', true)).toEqual(['partner', 'owner', 'storage']);
+    expect(coverageGaps(index, 'co-2', false)).toEqual(['partner', 'owner']);
+    expect(coverageGaps(index, 'co-3', true)).toEqual([]);
+    expect(filterCompanies(d, index, config, { ...NO_FILTERS, gapsOnly: true }).map((c) => c.id)).toEqual(['co-2']);
   });
 });

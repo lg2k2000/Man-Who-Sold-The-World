@@ -19,6 +19,11 @@ const territorySchema = z.object({
 export const territoryConfigSchema = z
   .object({
     fiscal_year: z.string().min(1),
+    /** Month and day the fiscal year starts, MM-DD; HPE's starts on 1 November. Quarters count from it. */
+    fiscal_year_start: z
+      .string()
+      .regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'fiscal_year_start must be MM-DD')
+      .default('11-01'),
     source: z.string(),
     default_focus: z.string(),
     territories: z.array(territorySchema).min(1),

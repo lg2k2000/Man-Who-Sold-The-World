@@ -395,6 +395,28 @@ sets.m8 = [
     steps: [search('Sample Co 1'), click('Log touch'), click('Save touch'), tab('Deals'), offMap],
   },
   { name: '06-territory-card', query: '?sample=1', steps: [clickRegion('US-MT', -40, 25)] },
+  { name: '07-north-america-pipeline', query: '?sample=1', steps: [click('North America'), away] },
+  { name: '08-closing-filter', query: '?sample=1', steps: [choose('Closing', 'next-quarter'), away] },
+  { name: '09-coverage-gaps', query: '?sample=1', steps: [check('Coverage gaps'), away] },
+  {
+    name: '10-panel-coverage-gaps',
+    query: '?sample=1',
+    steps: [
+      check('Coverage gaps'),
+      openToday,
+      async (page) => {
+        await page.locator('.quest').first().click();
+        await page.waitForTimeout(900);
+      },
+      tab('Coverage'),
+      offMap,
+    ],
+  },
+  {
+    name: '11-panel-full-height',
+    query: '?sample=1',
+    steps: [search('Sample Co 26'), click('Make the panel full height'), tab('Deals'), offMap],
+  },
 ];
 const shots = sets[milestone] ?? sets.m2;
 

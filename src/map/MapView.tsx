@@ -14,7 +14,17 @@ import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
 import { companyUpkeep, latestTouches, localToday, UPKEEP_BAND_LABELS, upkeepBand, type UpkeepBand } from '../data/upkeep';
-import { filterCompanies, hasOverlap, MY_AREA_ID, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
+import {
+  coverageGaps,
+  COVERAGE_GAP_LABELS,
+  filterCompanies,
+  hasOverlap,
+  moneyShort,
+  MY_AREA_ID,
+  openDealSummary,
+  territoryCodes,
+  type DataIndex,
+} from '../data/derive';
 import type { Company } from '../data/types';
 
 export interface MapInsets {
@@ -266,12 +276,16 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const counts = useMemo(() => {
     if (!geo || scope !== 'counts') return [];
     const n = new Map<string, number>();
-    for (const p of filtered) n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
+    const dollars = new Map<string, number>();
+    for (const p of filtered) {
+      n.set(p.state!, (n.get(p.state!) ?? 0) + 1);
+      dollars.set(p.state!, (dollars.get(p.state!) ?? 0) + (dataIndex.openPipeline.get(p.id) ?? 0));
+    }
     return [...n].flatMap(([code, count]) => {
       const r = geo.byCode.get(code);
-      return r ? [{ code, name: r.name, count, x: r.center[0], y: r.center[1] }] : [];
+      return r ? [{ code, name: r.name, count, pipeline: dollars.get(code) ?? 0, x: r.center[0], y: r.center[1] }] : [];
     });
-  }, [geo, scope, filtered]);
+  }, [geo, scope, filtered, dataIndex]);
 
   // Pins and count badges in zoom-scaled coordinates, so labels can keep clear of them.
   const labelObstacles = useMemo(() => {
@@ -375,6 +389,12 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     }
     return out;
   }, [pins, dataIndex, latest, upkeepDays, layers.upkeep]);
+
+  // What each account with open deals is missing; the storage check waits until coverage is imported.
+  const pinGaps = useMemo(() => {
+    const known = data.coverage.length > 0;
+    return new Map(pins.map((p) => [p.prospect.id, coverageGaps(dataIndex, p.prospect.id, known)]));
+  }, [pins, dataIndex, data.coverage.length]);
 
   // Larger pins draw first so smaller ones on top stay clickable; overlap halos and the selected pin go last.
   const bySize = [...pins].sort((a, b) => Number(a.overlap) - Number(b.overlap) || pinRadius(b.prospect.id) - pinRadius(a.prospect.id));
@@ -491,7 +511,19 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                   <g className="count-badge" onClick={() => selectState(c.code, index.get(c.code)?.territory.id ?? null)}>
                     <circle r={c.count > 9 ? 12 : 10} />
                     <text dy="0.35em">{c.count}</text>
-                    <title>{`${c.name}: ${c.count} compan${c.count === 1 ? 'y' : 'ies'}`}</title>
+                    {c.pipeline > 0 && (
+                      <g className="badge-pipeline" transform="translate(0, 22)">
+                        <rect
+                          x={-moneyShort(c.pipeline).length * 3.6 - 5}
+                          y={-8}
+                          width={moneyShort(c.pipeline).length * 7.2 + 10}
+                          height={16}
+                          rx={8}
+                        />
+                        <text dy="0.35em">{moneyShort(c.pipeline)}</text>
+                      </g>
+                    )}
+                    <title>{`${c.name}: ${c.count} compan${c.count === 1 ? 'y' : 'ies'}${c.pipeline ? `, ${moneyShort(c.pipeline)} open pipeline` : ''}`}</title>
                   </g>
                 </g>
               ))}
@@ -508,7 +540,13 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
-                    aria-label={[pinLabel(p, dataIndex), pinUpkeep.get(p.prospect.id)?.text].filter(Boolean).join(' ')}
+                    aria-label={[
+                      pinLabel(p, dataIndex),
+                      pinUpkeep.get(p.prospect.id)?.text,
+                      ...(pinGaps.get(p.prospect.id) ?? []).map((g) => COVERAGE_GAP_LABELS[g]),
+                    ]
+                      .filter(Boolean)
+                      .join('. ')}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
                     onMouseEnter={(e) => pinEnter(p, e)}
@@ -520,6 +558,16 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     }}
                   >
                     {p.overlap && <circle className="pin-halo" r={pinRadius(p.prospect.id) + 3.5} />}
+                    {(pinGaps.get(p.prospect.id)?.length ?? 0) > 0 &&
+                      (() => {
+                        const r = pinRadius(p.prospect.id);
+                        return (
+                          <g className="gap-mark" transform={`translate(${r * 0.75},${-r * 0.75})`} aria-hidden="true">
+                            <rect x={-4.5} y={-4.5} width={9} height={9} rx={2} />
+                            <text y={3}>!</text>
+                          </g>
+                        );
+                      })()}
                     {(() => {
                       const u = pinUpkeep.get(p.prospect.id);
                       if (!u) return null;
@@ -555,6 +603,11 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
           <strong>{pinTip.pin.prospect.name}</strong>
           <span>{openDealSummary(dataIndex, pinTip.pin.prospect.id) || 'No open deal'}</span>
           {pinUpkeep.get(pinTip.pin.prospect.id) && <span>{pinUpkeep.get(pinTip.pin.prospect.id)!.text}</span>}
+          {(pinGaps.get(pinTip.pin.prospect.id) ?? []).map((g) => (
+            <span key={g} className="tip-gap">
+              ! {COVERAGE_GAP_LABELS[g]}
+            </span>
+          ))}
           {(pinTip.pin.prospect.hq_city || pinTip.pin.unverified) && (
             <span className="muted">
               {[pinTip.pin.prospect.hq_city, pinTip.pin.unverified ? 'location unverified' : ''].filter(Boolean).join(', ')}

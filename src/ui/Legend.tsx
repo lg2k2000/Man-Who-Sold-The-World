@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { TerritoryConfig } from '../config/territories';
+import { moneyShort, pipelineByRegion } from '../data/derive';
 import { teamFor, teamLine } from '../data/teams';
 import type { Person } from '../data/types';
 import { useApp } from '../state/app';
@@ -15,6 +16,10 @@ export function Legend({ config, people, focusId, onSelect }: Props) {
   const [open, setOpen] = useState(true);
   const editing = useApp((s) => s.editingTerritories);
   const setEditing = useApp((s) => s.setEditingTerritories);
+  const data = useApp((s) => s.data);
+  const index = useApp((s) => s.index);
+  // Open pipeline per territory, so the legend says where the money is.
+  const byRegion = useMemo(() => pipelineByRegion(data, index), [data, index]);
   return (
     <section className="legend" aria-label="Territory legend">
       <div className="legend-head">
@@ -54,6 +59,10 @@ export function Legend({ config, people, focusId, onSelect }: Props) {
                       )}
                     </span>
                     <span className={`legend-team${team ? '' : ' empty'}`}>{team || 'No team imported'}</span>
+                    {(() => {
+                      const total = t.members.reduce((a, m) => a + (byRegion.get(m.code) ?? 0), 0);
+                      return total > 0 ? <span className="legend-pipeline">{moneyShort(total)} open pipeline</span> : null;
+                    })()}
                   </span>
                   <span
                     className={`legend-count${off ? ' warn' : ''}`}

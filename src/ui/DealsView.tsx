@@ -87,7 +87,7 @@ export function DealsView({ regionNames }: { regionNames: Map<string, string> })
       { id: 'amount', label: 'Amount', sort: (d) => d.amount, render: (d) => money(d.amount), className: 'num' },
       { id: 'close', label: 'Close', sort: (d) => d.close_date, render: (d) => d.close_date ?? '', className: 'nowrap' },
       { id: 'forecast', label: 'Forecast', sort: (d) => d.forecast_category, render: (d) => d.forecast_category },
-      { id: 'owner', label: 'HPE owner', sort: (d) => ownerName(index, d) || null, render: (d) => ownerName(index, d) },
+      { id: 'owner', label: 'Pipeline owner', sort: (d) => ownerName(index, d) || null, render: (d) => ownerName(index, d) },
       {
         id: 'partner',
         label: 'Partner',
@@ -191,7 +191,7 @@ export function DealsView({ regionNames }: { regionNames: Map<string, string> })
                 </select>
                 <select
                   className="text-input"
-                  aria-label="Filter deals by HPE owner"
+                  aria-label="Filter deals by primary pipeline owner"
                   value={owner}
                   onChange={(e) => setOwner(e.target.value)}
                 >
@@ -427,7 +427,7 @@ function DealForm({ deal, onClose }: { deal: Deal | null; regionNames: Map<strin
           )}
         </Field>
       </div>
-      <SelectField label="HPE owner" value={owner} onChange={setOwner} options={ownerOptions} error={errors.hpe_owner} />
+      <SelectField label="Primary pipeline owner" value={owner} onChange={setOwner} options={ownerOptions} error={errors.hpe_owner} />
       <SelectField
         label="Partner"
         value={partner}

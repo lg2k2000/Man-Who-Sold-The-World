@@ -170,6 +170,10 @@ export interface Filters {
   /** Open pipeline in US dollars a company needs to keep its pin; 0 means any. */
   minPipeline: number;
   overlapOnly: boolean;
+  /** Companies with an open deal closing in this window of the fiscal calendar. */
+  closeWindow: CloseWindow | 'any';
+  /** Companies whose open deals lack a partner, a pipeline owner, or (once coverage is imported) a storage rep. */
+  gapsOnly: boolean;
 }
 
 export const NO_FILTERS: Filters = {
@@ -179,14 +183,22 @@ export const NO_FILTERS: Filters = {
   openDeal: 'any',
   minPipeline: 0,
   overlapOnly: false,
+  closeWindow: 'any',
+  gapsOnly: false,
 };
 
 /** The deal sizes the filter bar offers, in US dollars of open pipeline. */
 export const PIPELINE_STEPS = [25_000, 50_000, 100_000, 250_000] as const;
 
 export function activeFilterCount(f: Filters): number {
-  return [f.tierFit, f.partnerId, f.openDeal !== 'any' || f.minPipeline > 0 ? 1 : null, f.overlapOnly || null].filter((x) => x !== null)
-    .length;
+  return [
+    f.tierFit,
+    f.partnerId,
+    f.openDeal !== 'any' || f.minPipeline > 0 ? 1 : null,
+    f.overlapOnly || null,
+    f.closeWindow !== 'any' ? 1 : null,
+    f.gapsOnly || null,
+  ].filter((x) => x !== null).length;
 }
 
 /** The viewer's own set of states and provinces, picked in Settings, chosen like a territory. */
@@ -204,8 +216,10 @@ export function filterCompanies(
   config: TerritoryConfig,
   f: Filters,
   myArea: readonly string[] = [],
+  today: string = todayLocal(),
 ): Company[] {
   const codes = f.territoryId ? territoryCodes(config, f.territoryId, myArea) : null;
+  const coverageKnown = d.coverage.length > 0;
   return d.companies.filter((c) => {
     if (!isPinned(c)) return false;
     if (codes && !codes.has(c.state!)) return false;
@@ -220,6 +234,11 @@ export function filterCompanies(
     if (f.openDeal === 'no' && index.openDealCompanies.has(c.id)) return false;
     if (f.minPipeline > 0 && (index.openPipeline.get(c.id) ?? 0) < f.minPipeline) return false;
     if (f.overlapOnly && !hasOverlap(index, c.id)) return false;
+    if (f.closeWindow !== 'any') {
+      const open = (index.dealsByCompany.get(c.id) ?? []).filter(isOpenDeal);
+      if (!open.some((x) => closeWindow(x.close_date, today, config.fiscal_year_start) === f.closeWindow)) return false;
+    }
+    if (f.gapsOnly && coverageGaps(index, c.id, coverageKnown).length === 0) return false;
     return true;
   });
 }
@@ -433,4 +452,84 @@ export function moneyShort(n: number): string {
 
 function trim(x: number): string {
   return x >= 100 ? String(Math.round(x)) : x.toFixed(1).replace(/\.0$/, '');
+}
+
+/** Today as YYYY-MM-DD in the viewer's time zone. */
+export function todayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * The fiscal year and quarter a date falls in. The fiscal year is named for the calendar year it
+ * ends in, so with a 1 November start, 2026-11-15 is FY27 Q1 and 2027-10-31 is FY27 Q4.
+ */
+export function fiscalQuarter(date: string, start = '11-01'): { fy: number; q: 1 | 2 | 3 | 4 } {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const [sm, sd] = start.split('-').map(Number) as [number, number];
+  const afterStart = m > sm || (m === sm && d >= sd);
+  const fyStartYear = afterStart ? y : y - 1;
+  // Months since the fiscal year began, counting a month from the start day.
+  let months = (y - fyStartYear) * 12 + (m - sm);
+  if (d < sd) months -= 1;
+  const fy = sm === 1 && sd === 1 ? fyStartYear : fyStartYear + 1;
+  return { fy, q: (Math.floor(months / 3) + 1) as 1 | 2 | 3 | 4 };
+}
+
+export type CloseWindow = 'past' | 'this-quarter' | 'next-quarter' | 'later' | 'none';
+export const CLOSE_WINDOWS: CloseWindow[] = ['past', 'this-quarter', 'next-quarter', 'later', 'none'];
+export const CLOSE_WINDOW_LABELS: Record<CloseWindow, string> = {
+  past: 'Close date passed',
+  'this-quarter': 'Closing this quarter',
+  'next-quarter': 'Closing next quarter',
+  later: 'Closing later',
+  none: 'No close date',
+};
+
+/** Which window a close date falls in, against today and the fiscal calendar. */
+export function closeWindow(closeDate: string | null, today: string, start = '11-01'): CloseWindow {
+  if (!closeDate) return 'none';
+  if (closeDate < today) return 'past';
+  const now = fiscalQuarter(today, start);
+  const then = fiscalQuarter(closeDate, start);
+  const diff = (then.fy - now.fy) * 4 + (then.q - now.q);
+  return diff <= 0 ? 'this-quarter' : diff === 1 ? 'next-quarter' : 'later';
+}
+
+/** A short label for the current fiscal quarter, such as "FY27 Q1". */
+export function quarterLabel(date: string, start = '11-01'): string {
+  const { fy, q } = fiscalQuarter(date, start);
+  return `FY${String(fy).slice(-2)} Q${q}`;
+}
+
+export type CoverageGap = 'partner' | 'owner' | 'storage';
+export const COVERAGE_GAP_LABELS: Record<CoverageGap, string> = {
+  partner: 'An open deal has no partner',
+  owner: 'An open deal has no primary pipeline owner',
+  storage: 'No storage rep covers the account, so nobody can approve the Morpheus part of a deal registration',
+};
+
+/**
+ * What an account with open deals is missing. The storage check runs only once any coverage is
+ * imported; before that every account would be flagged and the marker would mean nothing.
+ */
+export function coverageGaps(index: DataIndex, companyId: string, coverageKnown: boolean): CoverageGap[] {
+  const open = (index.dealsByCompany.get(companyId) ?? []).filter(isOpenDeal);
+  if (!open.length) return [];
+  const gaps: CoverageGap[] = [];
+  if (open.some((x) => !x.partner_id)) gaps.push('partner');
+  if (open.some((x) => !x.hpe_owner_id && !x.owner_name)) gaps.push('owner');
+  if (coverageKnown && !(index.coverageByCompany.get(companyId) ?? []).some((p) => p.roles.includes('storage'))) gaps.push('storage');
+  return gaps;
+}
+
+/** Open pipeline in dollars per state or province, for badges and the legend. */
+export function pipelineByRegion(d: Dataset, index: DataIndex): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const c of d.companies) {
+    if (!c.state || c.type === 'partner') continue;
+    const v = index.openPipeline.get(c.id) ?? 0;
+    if (v) out.set(c.state, (out.get(c.state) ?? 0) + v);
+  }
+  return out;
 }

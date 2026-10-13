@@ -144,7 +144,7 @@ An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. T
 | `amount` | no | Deal value in US dollars: 1250000, $1,250,000, or 1.25M. | value, deal value, total, total value, tcv, acv, revenue, amount usd, opportunity amount, deal size, price, total amount |
 | `close_date` | no | Expected or actual close: 2026-10-15, 10/15/2026, or a spreadsheet date. | close, close date, expected close, expected close date, closing date, est close date, estimated close date |
 | `forecast_category` | no | Free text, such as Pipeline, Upside, or Commit. | forecast, forecast category, category |
-| `hpe_owner` | no | HPE owner, by email or by name as it appears in the HPE team. A name not in the team is kept as text. | hpe owner email, owner, opportunity owner, deal owner, account owner, rep, sales rep, account manager, am |
+| `hpe_owner` | no | Primary pipeline owner (the HPE seller Salesforce names), by email or by name as it appears in the HPE team. A name not in the team is kept as text. | hpe owner email, owner, opportunity owner, deal owner, account owner, rep, sales rep, account manager, am |
 | `partner` | no | Partner company by name or id. A partner not in Companies yet is added as one. | partner id, partner name, partner account, primary partner, reseller, channel partner, var, distributor |
 | `contacts` | no | Contacts on the deal at its company, by name or email, separated by semicolons. New names are added to Contacts. | contact, primary contact, contact name |
 | `next_step` | no | Free text. | next step, next steps |
