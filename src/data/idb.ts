@@ -6,9 +6,10 @@ import { emptyDataset, TABLES, type Dataset, type TableName } from './types';
 const DB_NAME = 'territory-coverage';
 /**
  * Version 1 held prospects, partners, and stakeholders; version 2 was the CRM
- * model with people keyed by email; version 3 keys people by id.
+ * model with people keyed by email; version 3 keys people by id; version 4 adds
+ * touches, a new table, so a version 3 database only gains its store.
  */
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 /** Key path per table; it matches keyOf() in src/import/tables.ts. */
 const KEY_PATHS: Record<TableName, string | string[]> = {
@@ -18,6 +19,7 @@ const KEY_PATHS: Record<TableName, string | string[]> = {
   people: 'id',
   coverage: ['person_id', 'company_id'],
   briefs: 'company_id',
+  touches: 'id',
 };
 
 const V1_TABLES = ['people', 'coverage', 'partners', 'prospects', 'briefs', 'stakeholders', 'deals'] as const;
@@ -75,7 +77,7 @@ export class IndexedDbStore implements DataStore {
     for (const t of TABLES) {
       const store = tx.objectStore(t);
       await store.clear();
-      for (const row of data[t]) await store.put(row);
+      for (const row of data[t] ?? []) await store.put(row);
     }
     await tx.done;
   }
@@ -88,7 +90,7 @@ export class IndexedDbStore implements DataStore {
 async function writeAll(tx: IDBPTransaction<unknown, string[], 'versionchange'>, data: Dataset) {
   for (const t of TABLES) {
     const store = tx.objectStore(t);
-    for (const row of data[t]) await store.put(row);
+    for (const row of data[t] ?? []) await store.put(row);
   }
 }
 

@@ -16,6 +16,7 @@ import {
 } from '../data/derive';
 import type { Company } from '../data/types';
 import { useApp } from '../state/app';
+import { companyUpkeep, latestTouches, localToday, UPKEEP_BAND_LABELS, upkeepBand } from '../data/upkeep';
 import type { CityProps, Detail, LayerSettings } from './detail';
 import { HAWAII, type Boundaries, type RegionFeature } from './geo';
 import { labelWidth, maxRankForZoom } from './labels';
@@ -134,6 +135,8 @@ export function Map3D({ boundaries, detail, config, index, size, dark, insets, l
   const myArea = useApp((s) => s.settings.myArea);
   const focusId = useApp((s) => s.focusTerritoryId);
   const openCompany = useApp((s) => s.openCompany);
+  const upkeepDays = useApp((s) => s.settings.upkeepDays);
+  const latest = useMemo(() => latestTouches(data), [data]);
   const palette = BAND_COLORS[dark ? 'dark' : 'light'];
 
   const focusCodes = useMemo(() => (focusId ? territoryCodes(config, focusId, myArea) : null), [config, focusId, myArea]);
@@ -467,6 +470,15 @@ export function Map3D({ boundaries, detail, config, index, size, dark, insets, l
           <strong>{tip.col.company.name}</strong>
           <span>{tip.col.pipeline > 0 ? `Open pipeline ${money(tip.col.pipeline)}` : 'No open deal'}</span>
           {tip.col.band && <span>{STAGE_BAND_LABELS[tip.col.band]}</span>}
+          {(() => {
+            const u = companyUpkeep(dataIndex, latest, tip.col.company.id, localToday(), upkeepDays);
+            if (!u) return null;
+            return (
+              <span>
+                {u.pastDue ? 'Upkeep empty: close date passed' : `Upkeep: ${UPKEEP_BAND_LABELS[upkeepBand(u.level)]}, ${u.level}%`}
+              </span>
+            );
+          })()}
           {(tip.col.company.hq_city || tip.col.unverified) && (
             <span className="muted">
               {[tip.col.company.hq_city, tip.col.unverified ? 'location unverified' : ''].filter(Boolean).join(', ')}

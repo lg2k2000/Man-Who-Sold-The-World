@@ -15,7 +15,7 @@ export const BACKUP_FORMAT = 'territory-coverage-backup';
 export const BACKUP_VERSION = 3;
 
 /** Tables restore in this order so every reference has something to point at. */
-const RESTORE_ORDER: TableName[] = ['people', 'companies', 'contacts', 'deals', 'coverage', 'briefs'];
+const RESTORE_ORDER: TableName[] = ['people', 'companies', 'contacts', 'deals', 'coverage', 'briefs', 'touches'];
 
 export function makeBackup(data: Dataset, now = new Date()): string {
   return JSON.stringify({ format: BACKUP_FORMAT, version: BACKUP_VERSION, exported_at: now.toISOString(), data }, null, 2) + '\n';
@@ -96,5 +96,7 @@ function toRaw(table: TableName, row: unknown): Raw {
       return { ...r, person: r.person_id, company: r.company_id };
     case 'briefs':
       return { ...r, company: r.company_id };
+    case 'touches':
+      return { ...r, company: r.company_id, deal: r.deal_id };
   }
 }

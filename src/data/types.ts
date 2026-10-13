@@ -183,6 +183,23 @@ export interface Deal extends Provenance {
   as_of: string;
 }
 
+export const TOUCH_CHANNELS = ['email', 'call', 'meeting', 'other'] as const;
+export type TouchChannel = (typeof TOUCH_CHANNELS)[number];
+
+/** One conversation about an account: who, how, and when. Touches refill a deal's upkeep meter. */
+export interface Touch extends Provenance {
+  id: string;
+  company_id: string;
+  /** The deal it was about, or null for the account as a whole, which counts for all its deals. */
+  deal_id: string | null;
+  /** YYYY-MM-DD. */
+  date: string;
+  /** Who it was with, as written: a contact, a partner rep, or an HPE colleague. */
+  who: string;
+  channel: TouchChannel;
+  note: string;
+}
+
 export interface Dataset {
   companies: Company[];
   contacts: Contact[];
@@ -190,13 +207,14 @@ export interface Dataset {
   people: Person[];
   coverage: Coverage[];
   briefs: Brief[];
+  touches: Touch[];
 }
 
 export type TableName = keyof Dataset;
-export const TABLES: TableName[] = ['companies', 'contacts', 'deals', 'people', 'coverage', 'briefs'];
+export const TABLES: TableName[] = ['companies', 'contacts', 'deals', 'people', 'coverage', 'briefs', 'touches'];
 
 export function emptyDataset(): Dataset {
-  return { companies: [], contacts: [], deals: [], people: [], coverage: [], briefs: [] };
+  return { companies: [], contacts: [], deals: [], people: [], coverage: [], briefs: [], touches: [] };
 }
 
 export function hasSampleRows(d: Dataset): boolean {

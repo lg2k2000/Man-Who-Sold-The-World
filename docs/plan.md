@@ -106,7 +106,7 @@ Before each PR, Claude runs `tsc --noEmit`, the unit tests, and `vite build`, th
 - Imports read Excel, CSV, JSON, and pasted rows, match columns by name, link rows to companies and people by name, and preview every change before saving.
 - Hosting and an MCP server come later, on Neon and Railway, when the owner says go.
 
-### M8 pipeline on the map and daily upkeep (proposed 2026-10-11, waiting for the owner's approval)
+### M8 pipeline on the map and daily upkeep (proposed 2026-10-11; the owner said go on 2026-10-13 with the defaults below)
 
 The owner said the hardest part of sales is seeing the pipeline, and that the map helps with that and with seeing where coverage overlaps. A game layer could help with the daily upkeep. M8 does both, in that order: first the map shows where the money is and where coverage has gaps, then a layer the viewer can switch on shows what needs attention today. The map stays the main screen, and the upkeep layer goes in the layers menu so it never hides the pipeline.
 

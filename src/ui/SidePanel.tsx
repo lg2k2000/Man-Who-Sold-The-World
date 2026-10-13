@@ -16,6 +16,8 @@ import {
 } from '../data/types';
 import { useApp, type CompanyTab } from '../state/app';
 import { plural } from './forms';
+import { CompanyUpkeep, TouchList, UpkeepMeter, useDealUpkeep } from './Upkeep';
+import { dealUpkeep } from '../data/upkeep';
 
 interface Props {
   regionNames: Map<string, string>;
@@ -114,6 +116,14 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
   const regionIndex = useApp((s) => s.regionIndex);
   const territory = company.state ? regionIndex.get(company.state)?.territory : undefined;
   const pipeline = index.openPipeline.get(company.id) ?? 0;
+  const dealOwners = [
+    ...new Set(
+      deals
+        .filter(isOpenDeal)
+        .map((d) => ownerName(index, d))
+        .filter(Boolean),
+    ),
+  ];
   const counts: Record<Tab, number> = {
     Brief: brief ? BRIEF_SECTIONS.reduce((n, s) => n + brief.sections[s].length, 0) : 0,
     Contacts: contacts.length,
@@ -153,8 +163,15 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
               <button type="button" className="link" onClick={() => openPerson(owner.id)}>
                 {owner.name}
               </button>
+            ) : company.hpe_owner_id ? (
+              company.hpe_owner_id
+            ) : dealOwners.length ? (
+              // Imported companies rarely carry an owner; their deals do.
+              <span>
+                {dealOwners.join(', ')} <span className="muted small">(from the deals)</span>
+              </span>
             ) : (
-              (company.hpe_owner_id ?? <span className="muted">None</span>)
+              <span className="muted">None</span>
             )}
           </dd>
           <dt>Primary partner</dt>
@@ -187,6 +204,7 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
             Edit in Companies
           </button>
         </p>
+        {company.type !== 'partner' && <CompanyUpkeep company={company} />}
       </div>
       <div className="tabs" role="tablist" aria-label={`${company.name} details`}>
         {TABS.map((t) => (
@@ -227,7 +245,12 @@ function CompanyBody({ company, regionNames, initialTab }: { company: Company; r
         {tab === 'Brief' && <BriefTab brief={brief} />}
         {tab === 'Contacts' && <ContactsTab contacts={contacts} />}
         {tab === 'Coverage' && <CoverageTab people={covering} partner={partner} />}
-        {tab === 'Deals' && <DealsTab deals={deals} />}
+        {tab === 'Deals' && (
+          <>
+            <DealsTab deals={deals} />
+            <TouchList companyId={company.id} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -394,6 +417,7 @@ function ContactList({ contacts }: { contacts: Contact[] }) {
 function DealsTab({ deals: list, showCompany = false }: { deals: Deal[]; showCompany?: boolean }) {
   const index = useApp((s) => s.index);
   const editDeal = useApp((s) => s.editDeal);
+  const { latest, today, days } = useDealUpkeep();
   const deals = [...list].sort(
     (a, b) => Number(isOpenDeal(b)) - Number(isOpenDeal(a)) || (a.close_date ?? '').localeCompare(b.close_date ?? ''),
   );
@@ -420,7 +444,13 @@ function DealsTab({ deals: list, showCompany = false }: { deals: Deal[]; showCom
                 {[showCompany ? index.companyById.get(d.company_id)?.name : null, ownerName(index, d), d.op_id].filter(Boolean).join(' · ')}
               </div>
             </td>
-            <td>{d.stage}</td>
+            <td>
+              {d.stage}
+              {(() => {
+                const u = dealUpkeep(d, latest.get(d.id), today, days);
+                return u && <UpkeepMeter upkeep={u} compact />;
+              })()}
+            </td>
             <td className="num">{money(d.amount)}</td>
             <td>{d.close_date ?? ''}</td>
           </tr>

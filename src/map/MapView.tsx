@@ -13,6 +13,7 @@ import { useApp } from '../state/app';
 import { useHover } from '../state/hover';
 import { useEditTarget } from '../ui/TerritoryEditor';
 import { LayersMenu, type DetailStatus } from '../ui/LayersMenu';
+import { companyUpkeep, latestTouches, localToday, UPKEEP_BAND_LABELS, upkeepBand, type UpkeepBand } from '../data/upkeep';
 import { filterCompanies, hasOverlap, MY_AREA_ID, openDealSummary, territoryCodes, type DataIndex } from '../data/derive';
 import type { Company } from '../data/types';
 
@@ -68,6 +69,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const focusId = useApp((s) => s.focusTerritoryId);
   const myArea = useApp((s) => s.settings.myArea);
+  const upkeepDays = useApp((s) => s.settings.upkeepDays);
   const selectedState = useApp((s) => s.selectedState);
   const highlightCodes = useApp((s) => s.highlightCodes);
   const frame = useApp((s) => s.frame);
@@ -356,6 +358,24 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
 
   const selectedProspect = panel?.kind === 'company' ? panel.id : null;
   // The selected pin draws last so it sits on top.
+  // Each pin's upkeep: its most neglected open deal. Drawn as a ring that empties as deals go untouched.
+  const latest = useMemo(() => latestTouches(data), [data]);
+  const pinUpkeep = useMemo(() => {
+    const today = localToday();
+    const out = new Map<string, { level: number; band: UpkeepBand; text: string }>();
+    if (!layers.upkeep) return out;
+    for (const p of pins) {
+      const u = companyUpkeep(dataIndex, latest, p.prospect.id, today, upkeepDays);
+      if (!u) continue;
+      const band = upkeepBand(u.level);
+      const text = u.pastDue
+        ? `Upkeep empty: close date ${u.deal.close_date} has passed`
+        : `${UPKEEP_BAND_LABELS[band]}, ${u.level}%${u.estimated ? ' (no touch logged; from the review date)' : u.last?.who ? `, last touch with ${u.last.who}` : ''}`;
+      out.set(p.prospect.id, { level: u.level, band, text });
+    }
+    return out;
+  }, [pins, dataIndex, latest, upkeepDays, layers.upkeep]);
+
   // Larger pins draw first so smaller ones on top stay clickable; overlap halos and the selected pin go last.
   const bySize = [...pins].sort((a, b) => Number(a.overlap) - Number(b.overlap) || pinRadius(b.prospect.id) - pinRadius(a.prospect.id));
   const orderedPins = selectedProspect
@@ -488,7 +508,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     data-id={p.prospect.id}
                     role="button"
                     tabIndex={p.prospect.id === tabPin ? 0 : -1}
-                    aria-label={pinLabel(p, dataIndex)}
+                    aria-label={[pinLabel(p, dataIndex), pinUpkeep.get(p.prospect.id)?.text].filter(Boolean).join(' ')}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
                     onMouseEnter={(e) => pinEnter(p, e)}
@@ -500,6 +520,24 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     }}
                   >
                     {p.overlap && <circle className="pin-halo" r={pinRadius(p.prospect.id) + 3.5} />}
+                    {(() => {
+                      const u = pinUpkeep.get(p.prospect.id);
+                      if (!u) return null;
+                      const r = pinRadius(p.prospect.id) + 2.5;
+                      const c = 2 * Math.PI * r;
+                      return (
+                        <g className={`upkeep-ring ${u.band}`} aria-hidden="true">
+                          <circle className="ring-track" r={r} />
+                          {/* A stale meter shows as a whole red ring, an alert that reads on any territory color. */}
+                          <circle
+                            className="ring-fill"
+                            r={r}
+                            strokeDasharray={u.band === 'low' ? undefined : `${(c * u.level) / 100} ${c}`}
+                            transform="rotate(-90)"
+                          />
+                        </g>
+                      );
+                    })()}
                     <circle className="pin-dot" r={pinRadius(p.prospect.id) + (selectedProspect === p.prospect.id ? 2 : 0)} />
                   </g>
                 </g>
@@ -516,6 +554,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         >
           <strong>{pinTip.pin.prospect.name}</strong>
           <span>{openDealSummary(dataIndex, pinTip.pin.prospect.id) || 'No open deal'}</span>
+          {pinUpkeep.get(pinTip.pin.prospect.id) && <span>{pinUpkeep.get(pinTip.pin.prospect.id)!.text}</span>}
           {(pinTip.pin.prospect.hq_city || pinTip.pin.unverified) && (
             <span className="muted">
               {[pinTip.pin.prospect.hq_city, pinTip.pin.unverified ? 'location unverified' : ''].filter(Boolean).join(', ')}

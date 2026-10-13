@@ -199,6 +199,23 @@ A JSON list of objects, or an object with a `briefs` list. Each object has these
 | `verified_at` | no | Date someone last checked the row. | verified, verified on |
 | `updated_by` | no | Who made the file. Defaults to "import". |  |
 
+### Touches
+
+An Excel workbook, a CSV file, rows pasted from a spreadsheet, or a JSON list. The column names below match automatically, and so do the other names listed with each; any other column can be matched by hand.
+
+| Column | Required | Meaning | Also matches |
+| --- | --- | --- | --- |
+| `company` | yes | A company already in Companies, by name or id. | company id, account, account name, customer |
+| `deal` | no | The deal it was about, by op ID or deal name at that company. Empty means the account as a whole. | op id, opportunity id, deal name, opportunity |
+| `date` | yes | When it happened, YYYY-MM-DD. | touch date, when, contact date |
+| `who` | no | Who it was with, as text. | with, contact, person |
+| `channel` | no | One of email, call, meeting, other. Defaults to other. | type, how, medium |
+| `note` | no | Free text. | notes, summary |
+| `id` | no | The app's own key for the touch, in backups. Leave it empty. |  |
+| `source` | no | Where the row came from, as text or a URL. Defaults to the file name. |  |
+| `verified_at` | no | Date someone last checked the row. | verified, verified on |
+| `updated_by` | no | Who made the file. Defaults to "import". |  |
+
 <!-- import-columns:end -->
 
 ## Check it

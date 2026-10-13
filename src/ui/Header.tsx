@@ -4,6 +4,7 @@ import { MY_AREA_ID, territoryCodes } from '../data/derive';
 import { FieldError, regions } from '../import/fields';
 import { useApp, type ThemeSetting, type View } from '../state/app';
 import { Search } from './Search';
+import { QuestBoard } from './Upkeep';
 
 interface Props {
   config: TerritoryConfig;
@@ -51,6 +52,7 @@ export function Header({ config, homeId }: Props) {
       </nav>
       <Search />
       <div className="controls">
+        <QuestBoard />
         {view === 'map' && (
           <>
             <button
@@ -93,6 +95,8 @@ function SettingsMenu({ config, homeId }: Props) {
   const setEditorName = useApp((s) => s.setEditorName);
   const myArea = useApp((s) => s.settings.myArea);
   const setMyArea = useApp((s) => s.setMyArea);
+  const upkeepDays = useApp((s) => s.settings.upkeepDays);
+  const setUpkeepDays = useApp((s) => s.setUpkeepDays);
   const focusTerritory = useApp((s) => s.focusTerritory);
   const [areaText, setAreaText] = useState('');
   const [areaError, setAreaError] = useState<string | null>(null);
@@ -179,6 +183,20 @@ function SettingsMenu({ config, homeId }: Props) {
           <button type="button" className="btn small" onClick={saveArea}>
             Use as my area
           </button>
+          <label className="field">
+            <span>Days for an upkeep meter to run empty</span>
+            <input
+              className="text-input"
+              type="number"
+              min={1}
+              max={365}
+              value={upkeepDays}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isInteger(n) && n >= 1 && n <= 365) setUpkeepDays(n);
+              }}
+            />
+          </label>
           <label className="field">
             <span>Your name, for "updated by" on edits</span>
             <input className="text-input" value={editorName} placeholder="Not set" onChange={(e) => setEditorName(e.target.value)} />

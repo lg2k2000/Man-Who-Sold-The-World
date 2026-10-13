@@ -394,12 +394,35 @@ prospects.forEach((pr, i) => {
   }
 });
 
+// Touches come last so the earlier fixtures keep their random draws. Dates count back from the
+// fixtures' as_of, so upkeep meters show a spread of fresh, fading, and empty.
+const touches = [];
+const channels = ['email', 'call', 'meeting', 'email', 'call'];
+for (const d of deals) {
+  if (!chance(0.65)) continue;
+  const back = Math.floor(rand() * 45);
+  const at = new Date(Date.UTC(2026, 9, 1) - back * 86_400_000).toISOString().slice(0, 10);
+  const here = contacts.filter((c) => c.company_id === d.company_id);
+  const who = here.length ? pick(here).name : 'Sample Partner Rep';
+  const channel = pick(channels);
+  touches.push({
+    id: `touch-${at}-${d.company_id}-${d.id}-${channel}`.toLowerCase(),
+    company_id: d.company_id,
+    deal_id: d.id,
+    date: at,
+    who,
+    channel,
+    note: '',
+    ...prov,
+  });
+}
+
 const companies = [...prospects, ...partners];
-const dataset = { companies, contacts, deals, people, coverage, briefs };
+const dataset = { companies, contacts, deals, people, coverage, briefs, touches };
 const out = join(root, 'fixtures', 'sample', 'dataset.json');
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(dataset) + '\n');
 console.log(
   `Wrote ${out}: ${companies.length} companies (${partners.length} partners), ${contacts.length} contacts, ${deals.length} deals, ` +
-    `${people.length} people, ${coverage.length} coverage links, ${briefs.length} briefs`,
+    `${people.length} people, ${coverage.length} coverage links, ${briefs.length} briefs, ${touches.length} touches`,
 );

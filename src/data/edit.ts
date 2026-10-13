@@ -7,7 +7,7 @@ import type { TerritoryConfig } from '../config/territories';
 import { Resolver } from '../import/resolve';
 import { PARSERS, RowReader, type Raw } from '../import/tables';
 import { personMatchKey } from './names';
-import type { Company, Contact, Dataset, Deal, Person } from './types';
+import type { Company, Contact, Dataset, Deal, Person, Touch } from './types';
 
 export interface FieldErrors {
   [column: string]: string;
@@ -23,7 +23,7 @@ export interface EditContext {
   today: string;
 }
 
-function parse<T extends 'people' | 'companies' | 'contacts' | 'deals'>(table: T, raw: Raw, data: Dataset, ctx: EditContext) {
+function parse<T extends 'people' | 'companies' | 'contacts' | 'deals' | 'touches'>(table: T, raw: Raw, data: Dataset, ctx: EditContext) {
   const source = typeof raw.source === 'string' && raw.source.trim() ? raw.source : 'edited in app';
   const reader = new RowReader({ ...raw, updated_by: ctx.editor || 'edited in app', source });
   const warnings: string[] = [];
@@ -192,6 +192,7 @@ export function deleteCompany(d: Dataset, id: string): Dataset {
       })),
     coverage: d.coverage.filter((c) => c.company_id !== id),
     briefs: d.briefs.filter((b) => b.company_id !== id),
+    touches: d.touches.filter((t) => t.company_id !== id),
   };
 }
 
@@ -241,7 +242,12 @@ export function saveDeal(data: Dataset, originalId: string | null, raw: Raw, ctx
 }
 
 export function deleteDeal(d: Dataset, id: string): Dataset {
-  return { ...d, deals: d.deals.filter((x) => x.id !== id) };
+  // Touches about the deal stay as touches on the account.
+  return {
+    ...d,
+    deals: d.deals.filter((x) => x.id !== id),
+    touches: d.touches.map((t) => (t.deal_id === id ? { ...t, deal_id: null } : t)),
+  };
 }
 
 export type SortDir = 'asc' | 'desc';
@@ -262,4 +268,16 @@ export function sortRows<T>(rows: T[], value: (row: T) => string | number | null
     if (typeof x === 'number' && typeof y === 'number') return sign * (x - y);
     return sign * String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' });
   });
+}
+
+/** Logs a touch. The same touch logged twice (date, account, deal, channel, and who) is saved once. */
+export function saveTouch(data: Dataset, raw: Raw, ctx: EditContext): SaveResult<Touch> {
+  const { record, errors, warnings } = parse('touches', raw, data, ctx);
+  if (Object.keys(errors).length) return { ok: false, errors };
+  return { ok: true, data: { ...data, touches: replaceOrAdd(data.touches, (t) => t.id, record.id, record) }, record, warnings };
+}
+
+/** Removes one logged touch. */
+export function deleteTouch(d: Dataset, id: string): Dataset {
+  return { ...d, touches: d.touches.filter((t) => t.id !== id) };
 }
