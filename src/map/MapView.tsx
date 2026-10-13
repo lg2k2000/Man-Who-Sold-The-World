@@ -1,3 +1,4 @@
+import { isQuickClick } from './click';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { geoPath } from 'd3-geo';
 import { select } from 'd3-selection';
@@ -474,7 +475,8 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
               onKey={onRegionKey}
               onFocusRegion={(el, code) => {
                 setActiveRegion(code);
-                showCardFor(el, code);
+                // A mouse press also focuses the region; only keyboard focus opens the card.
+                if (el.matches(':focus-visible')) showCardFor(el, code);
               }}
             />
             {detail && <DetailUnder detail={detail} projection={geo.projection} layers={layers} k={zoomK} />}
@@ -653,6 +655,8 @@ const Regions = memo(function Regions({
   onKey,
   onFocusRegion,
 }: RegionsProps) {
+  // A press that lasts or moves is a pan or a hold, not a click, so it opens no card.
+  const press = useRef<{ x: number; y: number; t: number } | null>(null);
   return (
     <g
       className="regions"
@@ -664,7 +668,13 @@ const Regions = memo(function Regions({
         onHover(code, e.clientX - box.left, e.clientY - box.top);
       }}
       onMouseLeave={() => onHover(null, 0, 0)}
+      onPointerDown={(e) => {
+        press.current = { x: e.clientX, y: e.clientY, t: e.timeStamp };
+      }}
       onClick={(e) => {
+        const p = press.current;
+        press.current = null;
+        if (!isQuickClick(p, e.clientX, e.clientY, e.timeStamp)) return;
         const code = (e.target as Element).getAttribute('data-code');
         const box = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect();
         if (code) onSelect(code, e.clientX - box.left, e.clientY - box.top);
