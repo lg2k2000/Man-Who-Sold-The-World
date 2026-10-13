@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { TerritoryConfig } from '../config/territories';
-import { activeFilterCount, filterCompanies, isPinned, PIPELINE_STEPS, type Filters } from '../data/derive';
+import { activeFilterCount, filterCompanies, isPinned, MY_AREA_ID, PIPELINE_STEPS, type Filters } from '../data/derive';
 import { TIER_FITS, TIER_FIT_LABELS, type TierFit } from '../data/types';
 import { useApp } from '../state/app';
 
@@ -19,10 +19,15 @@ export function FilterBar({ config, regionNames }: Props) {
   const focusTerritory = useApp((s) => s.focusTerritory);
   const clearState = useApp((s) => s.clearState);
 
+  const myArea = useApp((s) => s.settings.myArea);
   const matching = useMemo(() => {
-    const list = filterCompanies(data, index, config, filters);
+    const list = filterCompanies(data, index, config, filters, myArea);
     return selectedState ? list.filter((c) => c.state === selectedState) : list;
-  }, [data, index, config, filters, selectedState]);
+  }, [data, index, config, filters, selectedState, myArea]);
+  const areaName =
+    filters.territoryId === MY_AREA_ID
+      ? 'My area'
+      : (config.territories.find((t) => t.id === filters.territoryId)?.name ?? 'this territory');
 
   const partners = useMemo(
     () => data.companies.filter((c) => c.type === 'partner').sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
@@ -37,6 +42,7 @@ export function FilterBar({ config, regionNames }: Props) {
         <span>Territory</span>
         <select aria-label="Territory" value={filters.territoryId ?? ''} onChange={(e) => focusTerritory(e.target.value || null)}>
           <option value="">All of North America</option>
+          {myArea.length > 0 && <option value={MY_AREA_ID}>My area</option>}
           {config.territories.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -109,7 +115,7 @@ export function FilterBar({ config, regionNames }: Props) {
         {pinned === 0
           ? 'No companies on the map'
           : filters.territoryId && !selectedState
-            ? `${matching.length} in ${config.territories.find((t) => t.id === filters.territoryId)?.name ?? 'this territory'}, ${pinned} on the map`
+            ? `${matching.length} in ${areaName}, ${pinned} on the map`
             : `${matching.length} of ${pinned} companies`}
       </span>
       {active > 0 && (

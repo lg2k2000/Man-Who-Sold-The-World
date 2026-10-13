@@ -162,13 +162,23 @@ export function activeFilterCount(f: Filters): number {
     .length;
 }
 
-export function territoryCodes(config: TerritoryConfig, territoryId: string): Set<string> {
+/** The viewer's own set of states and provinces, picked in Settings, chosen like a territory. */
+export const MY_AREA_ID = 'my-area';
+
+export function territoryCodes(config: TerritoryConfig, territoryId: string, myArea: readonly string[] = []): Set<string> {
+  if (territoryId === MY_AREA_ID) return new Set(myArea);
   return new Set(config.territories.find((t) => t.id === territoryId)?.members.map((m) => m.code) ?? []);
 }
 
 /** The companies the map pins, narrowed by the filter bar. */
-export function filterCompanies(d: Dataset, index: DataIndex, config: TerritoryConfig, f: Filters): Company[] {
-  const codes = f.territoryId ? territoryCodes(config, f.territoryId) : null;
+export function filterCompanies(
+  d: Dataset,
+  index: DataIndex,
+  config: TerritoryConfig,
+  f: Filters,
+  myArea: readonly string[] = [],
+): Company[] {
+  const codes = f.territoryId ? territoryCodes(config, f.territoryId, myArea) : null;
   return d.companies.filter((c) => {
     if (!isPinned(c)) return false;
     if (codes && !codes.has(c.state!)) return false;

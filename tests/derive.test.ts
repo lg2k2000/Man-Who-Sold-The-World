@@ -11,6 +11,7 @@ import {
   isWonDeal,
   money,
   moneyShort,
+  MY_AREA_ID,
   NO_FILTERS,
   activeFilterCount,
   orgTree,
@@ -86,6 +87,15 @@ describe('map pins and filters', () => {
     expect(filterCompanies(d, index, config, { ...NO_FILTERS, tierFit: 'enterprise' }).map((c) => c.id)).toEqual(['co-2']);
     expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'yes' }).map((c) => c.id)).toEqual(['co-1']);
     expect(filterCompanies(d, index, config, { ...NO_FILTERS, openDeal: 'no' }).map((c) => c.id)).toEqual(['co-2', 'co-3']);
+  });
+
+  it("narrows to the viewer's own area of states", () => {
+    const area = { ...NO_FILTERS, territoryId: MY_AREA_ID };
+    const ids = (codes: string[]) => filterCompanies(d, index, config, area, codes).map((c) => c.id);
+    const all = filterCompanies(d, index, config, NO_FILTERS);
+    const first = all[0]!;
+    expect(ids([first.state!])).toEqual(all.filter((c) => c.state === first.state).map((c) => c.id));
+    expect(ids([])).toEqual([]);
   });
 
   it('keeps only companies with enough open pipeline when a deal size is chosen', () => {
