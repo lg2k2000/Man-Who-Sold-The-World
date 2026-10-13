@@ -7,7 +7,7 @@ import { SortableTable, type Column } from './SortableTable';
 import { Drawer, Field, StatesPreview, statesText, today } from './forms';
 import { askConfirm } from './dialogs';
 
-export function PeopleView({ regionNames }: { regionNames: Map<string, string> }) {
+export function TeamView({ regionNames }: { regionNames: Map<string, string> }) {
   const data = useApp((s) => s.data);
   const index = useApp((s) => s.index);
   const config = useApp((s) => s.config);
@@ -19,7 +19,7 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
   // Changes only when the viewer opens a different record, so saving keeps the form and its message.
   const [formKey, setFormKey] = useState(0);
 
-  const editing = editRecord?.kind === 'person' ? (data.people.find((p) => p.email === editRecord.id) ?? null) : null;
+  const editing = editRecord?.kind === 'person' ? (data.people.find((p) => p.id === editRecord.id) ?? null) : null;
   const territoryName = useCallback((id: string) => config.territories.find((t) => t.id === id)?.name ?? id, [config]);
 
   const rows = useMemo(() => {
@@ -46,7 +46,12 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
         sort: (p) => p.roles.map((r) => ROLE_LABELS[r]).join(', '),
         render: (p) => p.roles.map((r) => ROLE_LABELS[r]).join(', '),
       },
-      { id: 'email', label: 'Email', sort: (p) => p.email, render: (p) => <span className="muted">{p.email}</span> },
+      {
+        id: 'email',
+        label: 'Email',
+        sort: (p) => p.email,
+        render: (p) => <span className="muted">{p.email || 'None'}</span>,
+      },
       {
         id: 'teams',
         label: 'Territory teams',
@@ -67,8 +72,8 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
       {
         id: 'accounts',
         label: 'Accounts',
-        sort: (p) => index.coverageByPerson.get(p.email)?.length ?? 0,
-        render: (p) => index.coverageByPerson.get(p.email)?.length ?? 0,
+        sort: (p) => index.coverageByPerson.get(p.id)?.length ?? 0,
+        render: (p) => index.coverageByPerson.get(p.id)?.length ?? 0,
         className: 'num',
       },
       {
@@ -93,10 +98,10 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
         <div className="page-inner wide">
           <header className="page-head row">
             <div>
-              <h2>People</h2>
+              <h2>HPE team</h2>
               <p className="muted">
                 {data.people.length === 0
-                  ? 'No HPE people imported yet. Import a people CSV in Data, or add someone here.'
+                  ? 'Nobody from HPE imported yet. Import a team spreadsheet in Data, or add someone here.'
                   : `${rows.length === data.people.length ? data.people.length : `${rows.length} of ${data.people.length}`} HPE people. Click a row to edit.`}
               </p>
             </div>
@@ -140,14 +145,14 @@ export function PeopleView({ regionNames }: { regionNames: Map<string, string> }
               caption="HPE people"
               columns={columns}
               rows={rows}
-              rowKey={(p) => p.email}
+              rowKey={(p) => p.id}
               onOpen={(p) => {
                 setAdding(false);
-                editPerson(p.email);
+                editPerson(p.id);
                 setFormKey((k) => k + 1);
               }}
               initialSort={{ id: 'name', dir: 'asc' }}
-              selectedKey={editing?.email ?? null}
+              selectedKey={editing?.id ?? null}
               empty={data.people.length === 0 ? 'Nobody here yet.' : 'Nobody matches the filter.'}
             />
           </div>
@@ -188,7 +193,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
     const data = useApp.getState().data;
     const result = savePerson(
       data,
-      person?.email ?? null,
+      person?.id ?? null,
       {
         name,
         email,
@@ -200,7 +205,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
         source,
         verified_at: verified,
       },
-      { config, editor },
+      { config, editor, today: today() },
     );
     if (!result.ok) {
       setErrors(result.errors);
@@ -210,7 +215,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
     try {
       await saveAll(result.data);
       setErrors({});
-      editPerson(result.record.email);
+      editPerson(result.record.id);
       setStatus(result.warnings.length ? `Saved, with a note: ${result.warnings.join(' ')}` : 'Saved.');
     } catch (e) {
       setStatus(`Saving failed: ${describeStorageError(e)}`);
@@ -220,10 +225,10 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
   const remove = async () => {
     if (!person) return;
     const data = useApp.getState().data;
-    const impact = personDeleteImpact(data, person.email);
+    const impact = personDeleteImpact(data, person.id);
     const extra = [
       impact.coverage && `${impact.coverage} coverage link${impact.coverage > 1 ? 's' : ''}`,
-      impact.prospects && `owner on ${impact.prospects} prospect${impact.prospects > 1 ? 's' : ''}`,
+      impact.companies && `owner on ${impact.companies} compan${impact.companies > 1 ? 'ies' : 'y'}`,
       impact.deals && `owner on ${impact.deals} deal${impact.deals > 1 ? 's' : ''}`,
     ].filter(Boolean);
     const ok = await askConfirm({
@@ -233,7 +238,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
       danger: true,
     });
     if (!ok) return;
-    await saveAll(deletePerson(data, person.email));
+    await saveAll(deletePerson(data, person.id));
     onClose();
   };
 
@@ -257,7 +262,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
             </button>
             {person && (
               <>
-                <button type="button" className="btn" onClick={() => openPerson(person.email)}>
+                <button type="button" className="btn" onClick={() => openPerson(person.id)}>
                   Show on map
                 </button>
                 <span className="fb-spacer" />
@@ -274,11 +279,7 @@ function PersonForm({ person, regionNames, onClose }: { person: Person | null; r
       <Field label="Name" error={errors.name}>
         {(id, d) => <input id={id} aria-describedby={d} className="text-input" value={name} onChange={(e) => setName(e.target.value)} />}
       </Field>
-      <Field
-        label="Email"
-        error={errors.email}
-        hint={person ? 'Changing the email updates their coverage and owner links.' : 'The key for this person; imports match on it.'}
-      >
+      <Field label="Email" error={errors.email} hint="Optional. Imports match on it when it is there, and on the name when it is not.">
         {(id, d) => (
           <input
             id={id}

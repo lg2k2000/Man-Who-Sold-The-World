@@ -1,0 +1,7 @@
+name,company,title,email,phone,id,reports_to,role_in_decision,last_contact,notes
+Sample Contact A1,Sample Partner A,Account Executive,a1@example.com,(206) 555-0101,,,,,
+Sample Contact A2,Sample Partner A,Solutions Architect,a2@example.com,,,,,,
+Sample Contact B1,Sample Partner B,Account Executive,b1@example.com,,,,,,
+Sample Stakeholder A,Sample Co A,Chief Information Officer,stakeholder.a@example.com,(206) 555-0142,sample-co-a-cio,,economic buyer,,
+Sample Stakeholder B,Sample Co A,"Director, Infrastructure",,,sample-co-a-infra,Sample Stakeholder A,technical decision maker,2026-09-30,
+Sample Stakeholder C,Sample Co A,Virtualization Lead,,,sample-co-a-virt,sample-co-a-infra,champion,9/15/2026,Ran the vSphere upgrade last year.

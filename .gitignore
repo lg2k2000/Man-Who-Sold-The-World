@@ -1,5 +1,5 @@
 # Real data never goes into Git: import files, exports, backups.
-data/
+/data/
 
 # Downloaded source boundaries (the simplified TopoJSON is committed elsewhere).
 .cache/

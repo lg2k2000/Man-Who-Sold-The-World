@@ -17,9 +17,32 @@ const failures = [];
 const views = [
   { name: 'map', url: '/?sample=1', ready: '.region' },
   { name: 'map empty', url: '/', ready: '.region' },
-  { name: 'people', url: '/?sample=1#/people', ready: '.records' },
-  { name: 'partners', url: '/?sample=1#/partners', ready: '.records' },
-  { name: 'data', url: '/#/data', ready: '.page' },
+  { name: 'deals', url: '/?sample=1#deals', ready: '.records' },
+  { name: 'companies', url: '/?sample=1#companies', ready: '.records' },
+  { name: 'contacts', url: '/?sample=1#contacts', ready: '.records' },
+  { name: 'HPE team', url: '/?sample=1#team', ready: '.records' },
+  { name: 'data', url: '/#data', ready: '.page' },
+  {
+    name: 'deal form',
+    url: '/?sample=1#deals',
+    ready: '.records',
+    steps: async (page) => {
+      await page.locator('table.records tbody tr').first().click();
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    name: 'company panel contacts',
+    url: '/?sample=1',
+    ready: '.region',
+    steps: async (page) => {
+      await page.getByRole('combobox', { name: /search/i }).fill('Sample Co 1');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(800);
+      await page.getByRole('tab', { name: /^Contacts/ }).click();
+      await page.waitForTimeout(200);
+    },
+  },
   {
     name: 'map layers at state zoom',
     url: '/?sample=1',
@@ -55,19 +78,29 @@ const views = [
     },
   },
   {
-    name: 'import report',
-    url: '/#/data',
+    name: 'import matching and preview',
+    url: '/#data',
     ready: '.page',
     steps: async (page) => {
-      const ex = (n) => join(root, 'fixtures', 'import-examples', n);
-      await page.setInputFiles('#import-file', [ex('people.csv'), ex('partners.csv'), ex('broken/prospects.csv'), ex('broken/deals.csv')]);
-      await page.getByRole('button', { name: /^Import 4 files/ }).click();
-      await page.waitForTimeout(800);
+      await page.setInputFiles('#import-file', join(root, 'fixtures', 'import-examples', 'manager-pipeline.xlsx'));
+      await page.waitForSelector('.preview');
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    name: 'import report',
+    url: '/#data',
+    ready: '.page',
+    steps: async (page) => {
+      await page.setInputFiles('#import-file', join(root, 'fixtures', 'import-examples', 'broken', 'deals.csv'));
+      await page.waitForSelector('.preview');
+      await page.getByRole('button', { name: /^Import \d+ row/ }).click();
+      await page.waitForSelector('.reports');
     },
   },
   {
     name: 'person form',
-    url: '/?sample=1#/people',
+    url: '/?sample=1#team',
     ready: '.records',
     steps: async (page) => {
       await page.getByRole('button', { name: 'Add person' }).first().click();
@@ -127,16 +160,16 @@ try {
   await step('Enter', /^path\|Idaho/);
   const chip = await page.locator('.chip').textContent();
   if (!chip?.includes('Idaho')) failures.push(`keyboard: Enter on Idaho did not select it (chip: ${chip})`);
-  await step('Tab', /^g\|Sample Co \d+, (Boise|Idaho Falls)/);
+  await step('Tab', /^g\|Sample Co \d+ \((Boise|Idaho Falls)/);
   await step('ArrowRight', /^g\|Sample Co/);
   await step('Enter', /^h2\|Sample Co/);
   for (let i = 0; i < 12; i++) {
     await page.keyboard.press('Tab');
     if ((await focused()).startsWith('button|Brief')) break;
   }
-  await step('ArrowRight', /^button\|Stakeholders/);
+  await step('ArrowRight', /^button\|Contacts/);
   const selected = await page.locator('[role=tab][aria-selected=true]').textContent();
-  if (!selected?.startsWith('Stakeholders')) failures.push('keyboard: ArrowRight did not select the Stakeholders tab');
+  if (!selected?.startsWith('Contacts')) failures.push('keyboard: ArrowRight did not select the Contacts tab');
   await step('Escape', /^g\|Sample Co/);
   await context.close();
 } finally {

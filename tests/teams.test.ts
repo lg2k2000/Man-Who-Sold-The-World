@@ -3,8 +3,10 @@ import { teamFor, teamLine } from '../src/data/teams';
 import type { Person } from '../src/data/types';
 
 function person(name: string, roles: Person['roles'], territories: string[]): Person {
+  const email = `${name.toLowerCase().replace(/ /g, '.')}@example.com`;
   return {
-    email: `${name.toLowerCase().replace(/ /g, '.')}@example.com`,
+    id: email,
+    email,
     name,
     roles,
     specialty: null,

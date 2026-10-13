@@ -6,14 +6,24 @@ export function EmptyMap() {
   const data = useApp((s) => s.data);
   const setView = useApp((s) => s.setView);
   const [hidden, setHidden] = useState(false);
-  if (data.prospects.length > 0 || hidden) return null;
-  const missing = [data.people.length === 0 && 'people', data.partners.length === 0 && 'partners', 'prospects'].filter(Boolean) as string[];
+  const pinnable = data.companies.filter((c) => c.type !== 'partner');
+  if (pinnable.some((c) => c.state) || hidden) return null;
+  const unplaced = pinnable.length;
   return (
     <div className="notice empty-map" role="status">
-      <div>
-        <strong>No prospects to pin yet.</strong> The map shows territories from the config. Import {joinList(missing)} in Data to fill the
-        cards and pins, or load the sample data to look around.
-      </div>
+      {unplaced > 0 ? (
+        <div>
+          <strong>
+            {unplaced} compan{unplaced === 1 ? 'y has' : 'ies have'} no state yet.
+          </strong>{' '}
+          A company gets a pin once it has a state or province. Add one in Companies, or import a companies sheet with a state column.
+        </div>
+      ) : (
+        <div>
+          <strong>No companies to pin yet.</strong> The map shows territories from the config. Import a deal spreadsheet, companies, or the
+          HPE team in Data to fill the cards and pins, or load the sample data to look around.
+        </div>
+      )}
       <button type="button" className="btn solid small" onClick={() => setView('data')}>
         Open Data
       </button>
@@ -22,9 +32,4 @@ export function EmptyMap() {
       </button>
     </div>
   );
-}
-
-function joinList(items: string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 }

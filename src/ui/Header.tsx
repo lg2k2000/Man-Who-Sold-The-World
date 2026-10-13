@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TerritoryConfig } from '../config/territories';
+import { MY_AREA_ID, territoryCodes } from '../data/derive';
+import { FieldError, regions } from '../import/fields';
 import { useApp, type ThemeSetting, type View } from '../state/app';
 import { Search } from './Search';
 
@@ -10,8 +12,10 @@ interface Props {
 
 const NAV: { view: View; label: string }[] = [
   { view: 'map', label: 'Map' },
-  { view: 'people', label: 'People' },
-  { view: 'partners', label: 'Partners' },
+  { view: 'deals', label: 'Deals' },
+  { view: 'companies', label: 'Companies' },
+  { view: 'contacts', label: 'Contacts' },
+  { view: 'team', label: 'HPE team' },
   { view: 'data', label: 'Data' },
 ];
 
@@ -19,7 +23,10 @@ export function Header({ config, homeId }: Props) {
   const focusTerritory = useApp((s) => s.focusTerritory);
   const view = useApp((s) => s.view);
   const setView = useApp((s) => s.setView);
-  const home = config.territories.find((t) => t.id === homeId);
+  const view3d = useApp((s) => s.view3d);
+  const setView3d = useApp((s) => s.setView3d);
+  const editing = useApp((s) => s.editingTerritories);
+  const home = homeId === MY_AREA_ID ? { name: 'My area' } : config.territories.find((t) => t.id === homeId);
 
   return (
     <header className="topbar">
@@ -58,6 +65,16 @@ export function Header({ config, homeId }: Props) {
             <button type="button" className="btn" onClick={() => focusTerritory(null)}>
               North America
             </button>
+            <button
+              type="button"
+              className={`btn${view3d ? ' on' : ''}`}
+              aria-pressed={view3d}
+              disabled={editing}
+              onClick={() => setView3d(!view3d)}
+              title="Show open pipeline as 3D columns"
+            >
+              3D
+            </button>
           </>
         )}
         <SettingsMenu config={config} homeId={homeId} />
@@ -74,6 +91,33 @@ function SettingsMenu({ config, homeId }: Props) {
   const setHome = useApp((s) => s.setHomeTerritory);
   const editorName = useApp((s) => s.settings.editorName);
   const setEditorName = useApp((s) => s.setEditorName);
+  const myArea = useApp((s) => s.settings.myArea);
+  const setMyArea = useApp((s) => s.setMyArea);
+  const focusTerritory = useApp((s) => s.focusTerritory);
+  const [areaText, setAreaText] = useState('');
+  const [areaError, setAreaError] = useState<string | null>(null);
+
+  // The area field starts from the saved area, or from the home territory's members when none is saved.
+  useEffect(() => {
+    if (!open) return;
+    const codes = myArea.length ? myArea : [...territoryCodes(config, homeId === MY_AREA_ID ? config.default_focus : homeId)];
+    setAreaText(codes.map((c) => c.slice(3)).join(', '));
+    setAreaError(null);
+  }, [open, myArea, config, homeId]);
+
+  const saveArea = () => {
+    try {
+      const codes = areaText.trim() ? regions(areaText) : [];
+      setMyArea(codes);
+      setAreaError(null);
+      if (codes.length) {
+        setHome(MY_AREA_ID);
+        focusTerritory(MY_AREA_ID);
+      } else if (homeId === MY_AREA_ID) setHome(config.default_focus);
+    } catch (e) {
+      setAreaError(e instanceof FieldError ? e.message : String(e));
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -112,6 +156,7 @@ function SettingsMenu({ config, homeId }: Props) {
           <label className="field">
             <span>My territory</span>
             <select value={homeId} onChange={(e) => setHome(e.target.value)}>
+              {myArea.length > 0 && <option value={MY_AREA_ID}>My area</option>}
               {config.territories.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -119,6 +164,21 @@ function SettingsMenu({ config, homeId }: Props) {
               ))}
             </select>
           </label>
+          <label className="field">
+            <span>My area: the states and provinces you work now, separated by commas</span>
+            <input
+              className="text-input"
+              value={areaText}
+              placeholder="AK, WA, OR, CA, NV, HI"
+              aria-invalid={areaError !== null}
+              onChange={(e) => setAreaText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveArea()}
+            />
+          </label>
+          {areaError && <p className="ferror">{areaError}</p>}
+          <button type="button" className="btn small" onClick={saveArea}>
+            Use as my area
+          </button>
           <label className="field">
             <span>Your name, for "updated by" on edits</span>
             <input className="text-input" value={editorName} placeholder="Not set" onChange={(e) => setEditorName(e.target.value)} />

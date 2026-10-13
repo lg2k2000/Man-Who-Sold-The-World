@@ -1,7 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { MY_AREA_ID } from './data/derive';
 import { loadBoundaries, type Boundaries } from './map/geo';
 import { loadDetail, type Detail } from './map/detail';
 import { MapView } from './map/MapView';
+
+// deck.gl is large, so the 3D view loads only when someone turns it on.
+const Map3D = lazy(() => import('./map/Map3D').then((m) => ({ default: m.Map3D })));
 import { HawaiiInset } from './map/HawaiiInset';
 import { Header } from './ui/Header';
 import { FilterBar } from './ui/FilterBar';
@@ -10,16 +14,17 @@ import { SampleBanner } from './ui/SampleBanner';
 import { SidePanel } from './ui/SidePanel';
 import { TerritoryCard } from './ui/TerritoryCard';
 import { DataView } from './ui/DataView';
-import { PeopleView } from './ui/PeopleView';
-import { PartnersView } from './ui/PartnersView';
+import { TeamView } from './ui/TeamView';
+import { CompaniesView } from './ui/CompaniesView';
+import { ContactsView } from './ui/ContactsView';
+import { DealsView } from './ui/DealsView';
 import { DraftNotice, EditBar, RegionEditor } from './ui/TerritoryEditor';
 import { EmptyMap } from './ui/EmptyMap';
 import { Dialogs } from './ui/dialogs';
-import { useApp, type View } from './state/app';
+import { useApp, VIEWS, type View } from './state/app';
 
 const LEGEND_WIDTH = 340;
 const PANEL_WIDTH = 440;
-const VIEWS: View[] = ['map', 'data', 'people', 'partners'];
 
 export function App() {
   const [boundaries, setBoundaries] = useState<Boundaries | null>(null);
@@ -43,8 +48,23 @@ export function App() {
   const editing = useApp((s) => s.editingTerritories);
   const storeProblem = useApp((s) => s.storeProblem);
   const layers = useApp((s) => s.settings.layers);
+  const view3d = useApp((s) => s.view3d);
+  const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => setSystemDark(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const dark = theme === 'dark' || (theme === 'system' && systemDark);
 
-  const homeId = savedHome && config.territories.some((t) => t.id === savedHome) ? savedHome : config.default_focus;
+  const myArea = useApp((s) => s.settings.myArea);
+  const homeId =
+    savedHome === MY_AREA_ID && myArea.length
+      ? MY_AREA_ID
+      : savedHome && config.territories.some((t) => t.id === savedHome)
+        ? savedHome
+        : config.default_focus;
 
   const regionNames = useMemo(() => new Map((boundaries?.regions ?? []).map((r) => [r.properties.code, r.properties.name])), [boundaries]);
 
@@ -78,7 +98,9 @@ export function App() {
   useEffect(() => {
     const fromHash = () => {
       const v = location.hash.replace(/^#\/?/, '') as View;
-      setView(VIEWS.includes(v) ? v : 'map');
+      // Earlier anchors (#people, #partners) still land somewhere sensible.
+      const legacy: Record<string, View> = { people: 'team', partners: 'companies' };
+      setView(VIEWS.includes(v) ? v : (legacy[v] ?? 'map'));
     };
     fromHash();
     window.addEventListener('hashchange', fromHash);
@@ -119,8 +141,10 @@ export function App() {
         </div>
       )}
       {view === 'data' && <DataView />}
-      {view === 'people' && <PeopleView regionNames={regionNames} />}
-      {view === 'partners' && <PartnersView regionNames={regionNames} />}
+      {view === 'deals' && <DealsView regionNames={regionNames} />}
+      {view === 'companies' && <CompaniesView regionNames={regionNames} />}
+      {view === 'contacts' && <ContactsView />}
+      {view === 'team' && <TeamView regionNames={regionNames} />}
       {view === 'map' && (
         <>
           {editing ? <EditBar regionNames={regionNames} /> : <FilterBar config={config} regionNames={regionNames} />}
@@ -134,7 +158,21 @@ export function App() {
               </div>
             )}
             {!boundaries && !error && <div className="map-loading">Loading map</div>}
-            {boundaries && (
+            {boundaries && view3d && !editing && (
+              <Suspense fallback={<div className="map-loading">Loading the 3D view</div>}>
+                <Map3D
+                  boundaries={boundaries}
+                  detail={detail}
+                  config={config}
+                  index={regionIndex}
+                  size={stage}
+                  dark={dark}
+                  insets={{ left: 300, right: panelOpen ? PANEL_WIDTH : 0 }}
+                  layers={layers}
+                />
+              </Suspense>
+            )}
+            {boundaries && !(view3d && !editing) && (
               <>
                 <MapView
                   boundaries={boundaries}

@@ -303,6 +303,59 @@ sets.m6 = [
   { name: '08-empty-map', query: '', steps: [waitDetail, offMap] },
   { name: '09-detail-failed', query: '?sample=1', route: '**/geo/detail.topo.json', steps: [click('Map layers')] },
 ];
+const paste = (text) => async (page) => {
+  await page.getByRole('button', { name: 'Paste rows' }).click();
+  await page.locator('#paste-rows').fill(text);
+  await page.getByRole('button', { name: 'Read pasted rows' }).click();
+  await page.waitForTimeout(400);
+};
+const pickPath = (path) => async (page) => {
+  await page.setInputFiles('#import-file', join(root, path));
+  await page.waitForSelector('.wizard');
+  await page.waitForTimeout(600);
+};
+const scrollTo = (selector) => async (page) => {
+  await page.locator(selector).first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+};
+sets.m7 = [
+  { name: '01-deals', query: '?sample=1#deals', steps: [] },
+  { name: '02-deal-form', query: '?sample=1#deals', steps: [row('VME migration'), offMap] },
+  { name: '03-companies', query: '?sample=1#companies', steps: [] },
+  { name: '04-partner-form', query: '?sample=1#companies', steps: [clickText(/^Partners/), row('Sample Partner 1(?!\\d)'), offMap] },
+  { name: '05-contacts', query: '?sample=1#contacts', steps: [] },
+  { name: '06-panel-contacts', query: '?sample=1', steps: [search('Sample Co 1'), tab('Contacts'), offMap] },
+  { name: '07-panel-deals', query: '?sample=1', steps: [search('Sample Co 1'), tab('Deals'), offMap] },
+  { name: '08-territory-card', query: '?sample=1', steps: [hoverRegion('US-MT', -40, 25)] },
+  { name: '09-import-workbook', query: '#data', steps: [pickPath('fixtures/import-examples/manager-pipeline.xlsx')] },
+  { name: '10-import-preview', query: '#data', steps: [pickPath('fixtures/import-examples/manager-pipeline.xlsx'), scrollTo('.preview')] },
+  {
+    name: '11-import-paste',
+    query: '#data',
+    steps: [
+      paste(
+        'Opportunity ID\tAccount Name\tOpportunity Name\tStage\tAmount\tClose Date\tBilling State\nOPE-0000000501\tSample Co 40\tVME pilot\tQualify\t$250,000\t1/15/2027\tWA\nOPE-0000000502\tSample Co 41\tDR site\tDevelop\t1.2M\t3/31/2027\tOR',
+      ),
+    ],
+  },
+  {
+    name: '12-import-done',
+    query: '#data',
+    steps: [pickPath('fixtures/import-examples/manager-pipeline.xlsx'), clickText(/^Import \d+ rows/), scrollTo('.reports')],
+  },
+  {
+    name: '13-deals-after-import',
+    query: '#data',
+    steps: [
+      pickPath('fixtures/import-examples/manager-pipeline.xlsx'),
+      clickText(/^Import \d+ rows/),
+      clickLink('Deals'),
+      clickText(/^All$/),
+    ],
+  },
+  { name: '14-team', query: '?sample=1#team', steps: [] },
+  { name: '15-big-deals', query: '?sample=1', steps: [choose('Deals', '100000')] },
+];
 const shots = sets[milestone] ?? sets.m2;
 
 const server = await preview({ root, preview: { port: 4317, strictPort: true }, logLevel: 'error' });
@@ -330,7 +383,7 @@ try {
       }
       await page.goto(base + '/' + shot.query);
       const mapFails = shot.route?.includes('north-america');
-      await page.waitForSelector(mapFails ? '.map-error' : shot.query.includes('#/') ? '.page' : '.region');
+      await page.waitForSelector(mapFails ? '.map-error' : shot.query.includes('#') ? '.page' : '.region');
       await page.waitForTimeout(400);
       for (const step of shot.steps) await step(page);
       const file = join(outDir, `${shot.name}-${scheme}.png`);

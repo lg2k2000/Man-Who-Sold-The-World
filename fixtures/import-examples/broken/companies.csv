@@ -1,0 +1,5 @@
+name,type,id,hq_city,state,lat,lng,segment,tier_fit,primary_partner,hpe_owner
+Sample Co X,prospect,sample-co-x,Seattle,WA,47.61,-122.33,enterprise,vme,Sample Partner A,sample.d@example.com
+Sample Co Y,prospect,Sample Co Y,Boise,Idaho,43.6,,huge,platinum,,
+Sample Co Z,vendor,sample-co-z,Anchorage,AK,61.2,149.9,enterprise,vme,,nobody@example.com
+Sample Co X,prospect,,Tacoma,WA,47.25,-122.44,mid-market,vme,,

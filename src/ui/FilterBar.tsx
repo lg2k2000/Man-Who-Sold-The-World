@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { TerritoryConfig } from '../config/territories';
-import { activeFilterCount, filterProspects } from '../data/derive';
+import { activeFilterCount, filterCompanies, hasOverlap, isPinned, MY_AREA_ID, PIPELINE_STEPS, type Filters } from '../data/derive';
 import { TIER_FITS, TIER_FIT_LABELS, type TierFit } from '../data/types';
 import { useApp } from '../state/app';
 
@@ -19,15 +19,23 @@ export function FilterBar({ config, regionNames }: Props) {
   const focusTerritory = useApp((s) => s.focusTerritory);
   const clearState = useApp((s) => s.clearState);
 
+  const myArea = useApp((s) => s.settings.myArea);
   const matching = useMemo(() => {
-    const list = filterProspects(data, index, config, filters);
-    return selectedState ? list.filter((p) => p.state === selectedState) : list;
-  }, [data, index, config, filters, selectedState]);
+    const list = filterCompanies(data, index, config, filters, myArea);
+    return selectedState ? list.filter((c) => c.state === selectedState) : list;
+  }, [data, index, config, filters, selectedState, myArea]);
+  // With no coverage imported, no company can have three roles; the switch says so instead of emptying the map.
+  const overlapCount = useMemo(() => data.companies.filter((c) => hasOverlap(index, c.id)).length, [data.companies, index]);
+  const areaName =
+    filters.territoryId === MY_AREA_ID
+      ? 'My area'
+      : (config.territories.find((t) => t.id === filters.territoryId)?.name ?? 'this territory');
 
   const partners = useMemo(
-    () => [...data.partners].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
-    [data.partners],
+    () => data.companies.filter((c) => c.type === 'partner').sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
+    [data.companies],
   );
+  const pinned = useMemo(() => data.companies.filter(isPinned).length, [data.companies]);
   const active = activeFilterCount(filters);
 
   return (
@@ -36,6 +44,7 @@ export function FilterBar({ config, regionNames }: Props) {
         <span>Territory</span>
         <select aria-label="Territory" value={filters.territoryId ?? ''} onChange={(e) => focusTerritory(e.target.value || null)}>
           <option value="">All of North America</option>
+          {myArea.length > 0 && <option value={MY_AREA_ID}>My area</option>}
           {config.territories.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -75,22 +84,32 @@ export function FilterBar({ config, regionNames }: Props) {
         </select>
       </label>
       <label className="fb-field">
-        <span>Open deal</span>
-        <select
-          aria-label="Open deal"
-          value={filters.openDeal}
-          onChange={(e) => setFilters({ openDeal: e.target.value as 'any' | 'yes' | 'no' })}
-        >
+        <span>Deals</span>
+        <select aria-label="Deals" value={dealChoice(filters)} onChange={(e) => setFilters(dealFilter(e.target.value))}>
           <option value="any">Any</option>
           <option value="yes">Has an open deal</option>
+          {PIPELINE_STEPS.map((n) => (
+            <option key={n} value={String(n)}>
+              Open pipeline ${n / 1000}K or more
+            </option>
+          ))}
           <option value="no">No open deal</option>
         </select>
       </label>
       <label
-        className={`fb-toggle${filters.overlapOnly ? ' on' : ''}`}
-        title="Accounts covered by people in three or more account coverage roles, not counting the EAM"
+        className={`fb-toggle${filters.overlapOnly ? ' on' : ''}${overlapCount === 0 && !filters.overlapOnly ? ' off' : ''}`}
+        title={
+          overlapCount === 0
+            ? 'No account has people in three or more coverage roles yet. Import coverage (who covers which account) on the Data page to use this.'
+            : `Accounts covered by people in three or more account coverage roles, not counting the EAM (${overlapCount})`
+        }
       >
-        <input type="checkbox" checked={filters.overlapOnly} onChange={(e) => setFilters({ overlapOnly: e.target.checked })} />
+        <input
+          type="checkbox"
+          checked={filters.overlapOnly}
+          disabled={overlapCount === 0 && !filters.overlapOnly}
+          onChange={(e) => setFilters({ overlapOnly: e.target.checked })}
+        />
         <span className="overlap-key" aria-hidden="true" />
         3+ coverage roles
       </label>
@@ -104,7 +123,11 @@ export function FilterBar({ config, regionNames }: Props) {
       )}
       <span className="fb-spacer" />
       <span className="fb-count" aria-live="polite">
-        {data.prospects.length === 0 ? 'No prospects imported' : `${matching.length} of ${data.prospects.length} prospects`}
+        {pinned === 0
+          ? 'No companies on the map'
+          : filters.territoryId && !selectedState
+            ? `${matching.length} in ${areaName}, ${pinned} on the map`
+            : `${matching.length} of ${pinned} companies`}
       </span>
       {active > 0 && (
         <button type="button" className="link" onClick={clearFilters}>
@@ -113,4 +136,14 @@ export function FilterBar({ config, regionNames }: Props) {
       )}
     </div>
   );
+}
+
+/** The deals menu is one choice over two filters: whether there is an open deal, and how big. */
+function dealChoice(f: Filters): string {
+  return f.minPipeline > 0 ? String(f.minPipeline) : f.openDeal;
+}
+
+function dealFilter(value: string): Pick<Filters, 'openDeal' | 'minPipeline'> {
+  if (value === 'any' || value === 'yes' || value === 'no') return { openDeal: value, minPipeline: 0 };
+  return { openDeal: 'yes', minPipeline: Number(value) };
 }
