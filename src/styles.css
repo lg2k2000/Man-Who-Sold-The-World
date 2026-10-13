@@ -827,6 +827,11 @@ input {
   pointer-events: none;
 }
 
+.fb-toggle.off {
+  color: var(--muted);
+  cursor: default;
+}
+
 .fb-toggle.on {
   border-color: var(--hpe-green);
   background: color-mix(in srgb, var(--hpe-green) 14%, transparent);
@@ -991,7 +996,36 @@ input {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin: -4px -6px 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.tcard-head:active {
+  cursor: grabbing;
+}
+
+.tcard-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tcard-close:hover {
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
 }
 
 .tcard-head strong {
@@ -2832,12 +2866,23 @@ textarea.text-input {
   flex: none;
 }
 
-.deck-tip {
-  padding: 8px 10px !important;
+.map3d-tip {
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  gap: 2px;
+  max-width: 250px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--surface) !important;
+  background: var(--surface);
   box-shadow: var(--shadow);
-  color: var(--text) !important;
-  font: 13px/1.45 inherit !important;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.map3d-tip .muted {
+  color: var(--muted);
 }
