@@ -21,6 +21,10 @@ interface HoverState {
   x: number;
   y: number;
   overCard: boolean;
+  /** The viewer dragged the card, so x and y are its top-left corner rather than an anchor point. */
+  placed: boolean;
+  /** Moves a card the viewer is dragging; x and y are its new top-left corner in map pixels. */
+  move(x: number, y: number): void;
   /** The pointer is over a region; `territoryOf` says which territory a region belongs to. */
   point(code: string, x: number, y: number, territoryOf: (code: string) => string): void;
   /** Shows the card for a region at once, for keyboard focus. */
@@ -54,6 +58,11 @@ export const useHover = create<HoverState>((set, get) => ({
   x: 0,
   y: 0,
   overCard: false,
+  placed: false,
+
+  move(x, y) {
+    set({ x, y, placed: true });
+  },
 
   point(code, x, y, territoryOf) {
     stopHide();
@@ -91,7 +100,7 @@ export const useHover = create<HoverState>((set, get) => ({
     stopHide();
     stopSwitch();
     shownTerritory = null;
-    set({ code, x, y, overCard: false });
+    set({ code, x, y, overCard: false, placed: false });
   },
 
   leave() {

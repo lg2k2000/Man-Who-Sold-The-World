@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { deleteDeal, saveDeal, type FieldErrors } from '../data/edit';
-import { dealLabel, isOpenDeal, money, moneyShort, ownerName, stageTotals } from '../data/derive';
+import { dealLabel, isOpenDeal, money, moneyShort, MY_AREA_ID, ownerName, stageTotals } from '../data/derive';
 import type { Deal } from '../data/types';
 import { useApp } from '../state/app';
 import { describeStorageError } from '../data/idb';
@@ -20,7 +20,9 @@ export function DealsView({ regionNames }: { regionNames: Map<string, string> })
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<Status>('open');
   const [stage, setStage] = useState('');
-  const [territory, setTerritory] = useState('');
+  const myArea = useApp((s) => s.settings.myArea);
+  // Starts on the viewer's own area when one is set, since that is the pipeline they work.
+  const [territory, setTerritory] = useState(() => (useApp.getState().settings.myArea.length ? MY_AREA_ID : ''));
   const [owner, setOwner] = useState('');
   const [adding, setAdding] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -43,12 +45,15 @@ export function DealsView({ regionNames }: { regionNames: Map<string, string> })
     return data.deals.filter((d) => {
       if (status === 'open' && !isOpenDeal(d)) return false;
       if (status === 'closed' && isOpenDeal(d)) return false;
-      if (territory && territoryOf(d)?.id !== territory) return false;
+      if (territory === MY_AREA_ID) {
+        const state = companyOf(d)?.state;
+        if (!state || !myArea.includes(state)) return false;
+      } else if (territory && territoryOf(d)?.id !== territory) return false;
       if (owner && ownerName(index, d) !== owner) return false;
       if (!q) return true;
       return [d.name, d.op_id ?? '', companyOf(d)?.name ?? '', d.next_step].some((x) => x.toLowerCase().includes(q));
     });
-  }, [data.deals, query, status, territory, owner, territoryOf, companyOf, index]);
+  }, [data.deals, query, status, territory, owner, territoryOf, companyOf, index, myArea]);
   const rows = useMemo(() => (stage ? base.filter((d) => (d.stage.trim() || 'No stage') === stage) : base), [base, stage]);
   const stages = useMemo(() => stageTotals(base), [base]);
   const total = rows.reduce((n, d) => n + (d.amount ?? 0), 0);
@@ -177,6 +182,7 @@ export function DealsView({ regionNames }: { regionNames: Map<string, string> })
                   onChange={(e) => setTerritory(e.target.value)}
                 >
                   <option value="">Any territory</option>
+                  {myArea.length > 0 && <option value={MY_AREA_ID}>My area</option>}
                   {config.territories.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { emptyDataset, hasSampleRows, TABLES, type Dataset, type TableName } from '../data/types';
-import { indexDataset, NO_FILTERS, type DataIndex, type Filters } from '../data/derive';
+import { indexDataset, NO_FILTERS, territoryCodes, type DataIndex, type Filters } from '../data/derive';
 import type { DataStore } from '../data/store';
 import { committedConfig } from '../config';
 import { buildRegionIndex, territoryConfigSchema, type RegionAssignment, type TerritoryConfig } from '../config/territories';
@@ -144,7 +144,11 @@ interface AppState {
   setFilters(patch: Partial<Filters>): void;
   clearFilters(): void;
   /** Shows a company on the map with its panel open; a partner shows the states it works in. */
-  openCompany(id: string, tab?: CompanyTab): void;
+  /**
+   * Opens a company's panel. From the map (`fromMap`) the map stays as it is; from search or a list
+   * the map goes to the company, keeping the current territory or area when the company is in it.
+   */
+  openCompany(id: string, tab?: CompanyTab, opts?: { fromMap?: boolean }): void;
   openPerson(id: string): void;
   closePanel(): void;
   editPerson(id: string | null): void;
@@ -277,9 +281,13 @@ export const useApp = create<AppState>((set, get) => ({
   clearFilters() {
     set((s) => ({ filters: { ...NO_FILTERS, territoryId: s.filters.territoryId } }));
   },
-  openCompany(id, tab) {
+  openCompany(id, tab, opts) {
     const c = get().index.companyById.get(id);
     if (!c) return;
+    if (opts?.fromMap) {
+      set({ view: 'map', panel: { kind: 'company', id, tab } });
+      return;
+    }
     if (c.type === 'partner' || !c.state) {
       // A partner, or a company with no location, frames the states it works in, if any.
       set((s) => ({
@@ -294,7 +302,9 @@ export const useApp = create<AppState>((set, get) => ({
       }));
       return;
     }
-    const territoryId = get().regionIndex.get(c.state)?.territory.id ?? null;
+    const { focusTerritoryId, config, settings } = get();
+    const keep = focusTerritoryId !== null && territoryCodes(config, focusTerritoryId, settings.myArea).has(c.state);
+    const territoryId = keep ? focusTerritoryId : (get().regionIndex.get(c.state)?.territory.id ?? null);
     set((s) => ({
       view: 'map',
       panel: { kind: 'company', id, tab },

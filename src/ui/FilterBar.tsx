@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { TerritoryConfig } from '../config/territories';
-import { activeFilterCount, filterCompanies, isPinned, MY_AREA_ID, PIPELINE_STEPS, type Filters } from '../data/derive';
+import { activeFilterCount, filterCompanies, hasOverlap, isPinned, MY_AREA_ID, PIPELINE_STEPS, type Filters } from '../data/derive';
 import { TIER_FITS, TIER_FIT_LABELS, type TierFit } from '../data/types';
 import { useApp } from '../state/app';
 
@@ -24,6 +24,8 @@ export function FilterBar({ config, regionNames }: Props) {
     const list = filterCompanies(data, index, config, filters, myArea);
     return selectedState ? list.filter((c) => c.state === selectedState) : list;
   }, [data, index, config, filters, selectedState, myArea]);
+  // With no coverage imported, no company can have three roles; the switch says so instead of emptying the map.
+  const overlapCount = useMemo(() => data.companies.filter((c) => hasOverlap(index, c.id)).length, [data.companies, index]);
   const areaName =
     filters.territoryId === MY_AREA_ID
       ? 'My area'
@@ -95,10 +97,19 @@ export function FilterBar({ config, regionNames }: Props) {
         </select>
       </label>
       <label
-        className={`fb-toggle${filters.overlapOnly ? ' on' : ''}`}
-        title="Accounts covered by people in three or more account coverage roles, not counting the EAM"
+        className={`fb-toggle${filters.overlapOnly ? ' on' : ''}${overlapCount === 0 && !filters.overlapOnly ? ' off' : ''}`}
+        title={
+          overlapCount === 0
+            ? 'No account has people in three or more coverage roles yet. Import coverage (who covers which account) on the Data page to use this.'
+            : `Accounts covered by people in three or more account coverage roles, not counting the EAM (${overlapCount})`
+        }
       >
-        <input type="checkbox" checked={filters.overlapOnly} onChange={(e) => setFilters({ overlapOnly: e.target.checked })} />
+        <input
+          type="checkbox"
+          checked={filters.overlapOnly}
+          disabled={overlapCount === 0 && !filters.overlapOnly}
+          onChange={(e) => setFilters({ overlapOnly: e.target.checked })}
+        />
         <span className="overlap-key" aria-hidden="true" />
         3+ coverage roles
       </label>

@@ -40,6 +40,21 @@ const PIN_ZOOM = 2.5;
 
 export function MapView({ boundaries, detail, detailStatus, layers, config, index, insets }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // A pin's card shows after the pointer rests on it, below and right of the cursor so the cursor never covers the name.
+  const [pinTip, setPinTip] = useState<{ pin: PlacedPin; x: number; y: number } | null>(null);
+  const pinTipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pinEnter = (pin: PlacedPin, e: React.MouseEvent) => {
+    const box = containerRef.current?.getBoundingClientRect();
+    if (!box) return;
+    if (pinTipTimer.current) clearTimeout(pinTipTimer.current);
+    const at = { pin, x: e.clientX - box.left, y: e.clientY - box.top };
+    pinTipTimer.current = setTimeout(() => setPinTip(at), 300);
+  };
+  const pinLeave = () => {
+    if (pinTipTimer.current) clearTimeout(pinTipTimer.current);
+    pinTipTimer.current = null;
+    setPinTip(null);
+  };
   const svgRef = useRef<SVGSVGElement>(null);
   const layerRef = useRef<SVGGElement>(null);
   const patternRef = useRef<SVGPatternElement>(null);
@@ -65,24 +80,18 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
   const openCompany = useApp((s) => s.openCompany);
   const editing = useApp((s) => s.editingTerritories);
   const openEditor = useEditTarget((s) => s.open);
-  const hoverPoint = useHover((s) => s.point);
   const hoverShow = useHover((s) => s.show);
-  const hoverLeave = useHover((s) => s.leave);
   const hoverClear = useHover((s) => s.clear);
   // Each unassigned region counts as its own territory for the card.
-  const onRegionHover = useCallback(
-    (code: string | null, x: number, y: number) => {
-      if (code) hoverPoint(code, x, y, (c) => index.get(c)?.territory.id ?? `region:${c}`);
-      else hoverLeave();
-    },
-    [hoverPoint, hoverLeave, index],
-  );
+  // The territory card opens on a click and stays until it is closed, so moving the
+  // pointer across the map never pops it up (the owner found hover cards got in the way).
+  const onRegionHover = useCallback(() => {}, []);
   const onRegionSelect = useCallback(
     (code: string, x: number, y: number) => {
       if (editing) openEditor(code, x, y);
-      else selectState(code, index.get(code)?.territory.id ?? null);
+      else hoverShow(code, x, y);
     },
-    [editing, openEditor, selectState, index],
+    [editing, openEditor, hoverShow],
   );
 
   useLayoutEffect(() => {
@@ -128,7 +137,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         [-size.w * 0.5, -size.h * 0.5],
         [size.w * 1.5, size.h * 1.5],
       ])
-      .on('start', () => hoverClear())
+      .on('start', () => setPinTip(null))
       .on('zoom', (event) => {
         const t = event.transform;
         const layer = layerRef.current;
@@ -328,7 +337,9 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         e.preventDefault();
         const el = e.currentTarget.getBoundingClientRect();
         const svgBox = svgRef.current!.getBoundingClientRect();
-        onRegionSelect(code, el.left + el.width / 2 - svgBox.left, el.top + el.height / 2 - svgBox.top);
+        // Focus already shows the card for keyboard users, so Enter zooms to the state.
+        if (editing) onRegionSelect(code, el.left + el.width / 2 - svgBox.left, el.top + el.height / 2 - svgBox.top);
+        else selectState(code, index.get(code)?.territory.id ?? null);
         return;
       } else if (e.key === 'Escape') {
         hoverClear();
@@ -340,7 +351,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
         focusRegionEl(next);
       }
     },
-    [regionOrder, focusRegionEl, onRegionSelect, hoverClear],
+    [regionOrder, focusRegionEl, onRegionSelect, hoverClear, editing, selectState, index],
   );
 
   const selectedProspect = panel?.kind === 'company' ? panel.id : null;
@@ -372,7 +383,7 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
     else if (e.key === 'End') next = pinOrder.at(-1);
     else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      openCompany(id);
+      openCompany(id, undefined, { fromMap: true });
       return;
     } else return;
     e.preventDefault();
@@ -399,7 +410,6 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
           className="map-svg"
           role="group"
           aria-label="Territory map. Tab to the states and provinces, then use the arrow keys; Enter zooms in."
-          onMouseLeave={() => hoverLeave()}
         >
           <defs>
             <pattern id="hatch" ref={patternRef} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -481,21 +491,37 @@ export function MapView({ boundaries, detail, detailStatus, layers, config, inde
                     aria-label={pinLabel(p, dataIndex)}
                     aria-pressed={selectedProspect === p.prospect.id}
                     onFocus={() => setActivePin(p.prospect.id)}
+                    onMouseEnter={(e) => pinEnter(p, e)}
+                    onMouseLeave={pinLeave}
                     onKeyDown={(e) => onPinKey(e, p.prospect.id)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      openCompany(p.prospect.id);
+                      openCompany(p.prospect.id, undefined, { fromMap: true });
                     }}
                   >
                     {p.overlap && <circle className="pin-halo" r={pinRadius(p.prospect.id) + 3.5} />}
                     <circle className="pin-dot" r={pinRadius(p.prospect.id) + (selectedProspect === p.prospect.id ? 2 : 0)} />
-                    <title>{pinLabel(p, dataIndex)}</title>
                   </g>
                 </g>
               ))}
             </g>
           </g>
         </svg>
+      )}
+      {pinTip && size && (
+        <div
+          className="map3d-tip"
+          role="status"
+          style={{ left: Math.min(pinTip.x + 16, size.w - 260), top: Math.min(pinTip.y + 18, size.h - 110) }}
+        >
+          <strong>{pinTip.pin.prospect.name}</strong>
+          <span>{openDealSummary(dataIndex, pinTip.pin.prospect.id) || 'No open deal'}</span>
+          {(pinTip.pin.prospect.hq_city || pinTip.pin.unverified) && (
+            <span className="muted">
+              {[pinTip.pin.prospect.hq_city, pinTip.pin.unverified ? 'location unverified' : ''].filter(Boolean).join(', ')}
+            </span>
+          )}
+        </div>
       )}
       <div className="zoom-buttons">
         <LayersMenu status={detailStatus} />

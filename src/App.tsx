@@ -168,6 +168,7 @@ export function App() {
                   size={stage}
                   dark={dark}
                   insets={{ left: 300, right: panelOpen ? PANEL_WIDTH : 0 }}
+                  layers={layers}
                 />
               </Suspense>
             )}
